@@ -1,0 +1,25 @@
+opencv-python
+scikit-image==0.15
+easydict
+pyyaml
+tensorboardx
+trimesh
+shapely
+
+# <https://pytorch.org/get-started/previous-versions/>
+# <https://download.pytorch.org/whl/torch_stable.html>
+
+#########
+# torch #
+#########
+
+# py3.7
+# CUDA 9.2
+
+# torch1.1
+https://download.pytorch.org/whl/cu90/torch-1.1.0-cp37-cp37m-linux_x86_64.whl
+https://download.pytorch.org/whl/cu90/torchvision-0.3.0-cp37-cp37m-manylinux1_x86_64.whl
+
+# torch1.7.1
+# https://download.pytorch.org/whl/cu92/torch-1.7.1%2Bcu92-cp37-cp37m-linux_x86_64.whl
+# https://download.pytorch.org/whl/cu92/torchvision-0.8.2%2Bcu92-cp37-cp37m-linux_x86_64.whl
