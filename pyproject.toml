@@ -18,6 +18,7 @@ warn_unused_configs = true
 [tool.poe.tasks]
 # <https://pytorch.org/get-started/previous-versions/#v110>
 force-cuda90 = "pip3 install torch==1.1.0 torchvision==0.3.0 -f https://download.pytorch.org/whl/cu90/torch_stable.html"
+force-neural-renderer = "pip3 install neural_renderer_pytorch"
 
 [tool.poetry]
 name = "pixel2mesh-pytorch-noahcao"
