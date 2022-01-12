@@ -34,6 +34,7 @@ PyYAML = "^6.0"
 tensorboardX = "^2.4.1"
 trimesh = "^3.9.42"
 Shapely = "^1.8.0"
+Pillow = "6.1"
 
 [tool.poetry.dev-dependencies]
 black = "^21.12b0"
