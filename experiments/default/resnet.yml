@@ -1,16 +1,17 @@
+# checkpoint: checkpoints/check-resnet/default_resnet_0618050306/770000_000009.pt
 checkpoint: null
 checkpoint_dir: checkpoints
 dataset:
   camera_c:
-  - 111.5
-  - 111.5
+    - 111.5
+    - 111.5
   camera_f:
-  - 248.0
-  - 248.0
+    - 248.0
+    - 248.0
   mesh_pos:
-  - 0.0
-  - 0.0
-  - -0.8
+    - 0.0
+    - 0.0
+    - -0.8
   name: shapenet
   normalization: true
   num_classes: 13
@@ -21,14 +22,15 @@ dataset:
     resize_with_constant_border: false
   subset_eval: test_tf
   subset_train: train_tf
+  # subset_train: data_tf_2021-12-17
 log_dir: logs
 log_level: info
 loss:
   weights:
     chamfer:
-    - 1.0
-    - 1.0
-    - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
     chamfer_opposite: 0.55
     constant: 1.0
     edge: 0.1
@@ -53,22 +55,22 @@ optim:
   lr: 0.0001
   lr_factor: 0.3
   lr_step:
-  - 30
-  - 70
-  - 90
+    - 30
+    - 70
+    - 90
   name: adam
   sgd_momentum: 0.9
   wd: 1.0e-06
 pin_memory: true
 summary_dir: summary
 test:
-  batch_size: 4
+  batch_size: 8
   dataset: []
   shuffle: false
   summary_steps: 50
   weighted_mean: false
 train:
-  batch_size: 4
+  batch_size: 8
   checkpoint_steps: 10000
   num_epochs: 110
   shuffle: true
