@@ -7,10 +7,6 @@ forked from <https://github.com/noahcao/Pixel2Mesh>
 - CUDA 9.0
 
 ```sh
-./setup.sh
-poetry install
-```
-
-```sh
-cd external/chamfer && poetry run pip install -e .
+git clone --recurse-submodules git@github.com:pollenjp/pixel2mesh-pytorch-noahcao.git
+make setup
 ```
