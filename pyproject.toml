@@ -1,3 +1,37 @@
+[tool.poetry]
+name = "pixel2mesh-pytorch-noahcao"
+version = "0.1.0"
+description = ""
+authors = ["pollenjp <polleninjp@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.7,<3.11"
+scikit-image = "0.15"
+opencv-python = "^4.5.5"
+easydict = "^1.9"
+PyYAML = "^6.0"
+tensorboardX = "^2.4.1"
+trimesh = "^3.9.42"
+Shapely = "^1.8.0"
+Pillow = "6.1"
+torch = { file = ".wheel/torch-1.1.0-cp37-cp37m-linux_x86_64.whl" }
+torchvision = { file = ".wheel/torchvision-0.3.0-cp37-cp37m-manylinux1_x86_64.whl" }
+
+
+[tool.poetry.dev-dependencies]
+black = "^21.12b0"
+flake8 = "^4.0.1"
+autoflake8 = "^0.2.2"
+isort = "^5.10.1"
+mypy = "^0.931"
+nox = "^2022.1.7"
+poethepoet = "^0.12.0"
+tensorboard = "^2.8.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
 [tool.black]
 line-length = 120
 
@@ -19,34 +53,3 @@ warn_unused_configs = true
 # <https://pytorch.org/get-started/previous-versions/#v110>
 force-cuda90 = "pip3 install torch==1.1.0 torchvision==0.3.0 -f https://download.pytorch.org/whl/cu90/torch_stable.html"
 force-neural-renderer = "pip3 install neural_renderer_pytorch"
-
-[tool.poetry]
-name = "pixel2mesh-pytorch-noahcao"
-version = "0.1.0"
-description = ""
-authors = ["pollenjp <polleninjp@gmail.com>"]
-
-[tool.poetry.dependencies]
-python = "^3.7,<3.11"
-scikit-image = "0.15"
-opencv-python = "^4.5.5"
-easydict = "^1.9"
-PyYAML = "^6.0"
-tensorboardX = "^2.4.1"
-trimesh = "^3.9.42"
-Shapely = "^1.8.0"
-Pillow = "6.1"
-
-[tool.poetry.dev-dependencies]
-black = "^21.12b0"
-flake8 = "^4.0.1"
-autoflake8 = "^0.2.2"
-isort = "^5.10.1"
-mypy = "^0.931"
-nox = "^2022.1.7"
-poethepoet = "^0.12.0"
-tensorboard = "^2.8.0"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
