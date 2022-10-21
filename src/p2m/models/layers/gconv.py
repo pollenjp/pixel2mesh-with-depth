@@ -2,7 +2,7 @@
 # Third Party Library
 import torch
 import torch.nn as nn
-from utils.tensor import dot
+from p2m.utils.tensor import dot
 
 
 class GConv(nn.Module):

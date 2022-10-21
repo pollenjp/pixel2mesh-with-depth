@@ -26,7 +26,6 @@ def extract_coords_from_obj_file(obj_filepath: Path) -> t.List[t.List[float]]:
                 continue
 
             xyz = line_elem[1:]
-            print(i)
             coords.append(list(map(float, xyz)))
 
     return coords

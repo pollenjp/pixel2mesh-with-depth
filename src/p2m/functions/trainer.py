@@ -2,10 +2,6 @@
 import torch
 from torch.nn.parallel.data_parallel import DataParallel
 from torch.utils.data import DataLoader
-from utils.average_meter import AverageMeter
-from utils.mesh import Ellipsoid
-from utils.tensor import recursive_detach
-from utils.vis.renderer import MeshRenderer
 
 # First Party Library
 from p2m.functions.base import CheckpointRunner
@@ -15,13 +11,18 @@ from p2m.models.losses.classifier import CrossEntropyLoss
 from p2m.models.losses.p2m import P2MLoss
 from p2m.models.p2m import P2MModel
 from p2m.models.p2m_with_template import P2MModelWithTemplate
+from p2m.utils.average_meter import AverageMeter
+from p2m.utils.mesh import Ellipsoid
+from p2m.utils.tensor import recursive_detach
+from p2m.utils.vis.renderer import MeshRenderer
 
 
 class Trainer(CheckpointRunner):
 
     # noinspection PyAttributeOutsideInit
     def init_fn(self, shared_model=None, **kwargs):
-        if self.options.model.name == "pixel2mesh":
+        # if self.options.model.name == "pixel2mesh":
+        if self.options.model.name in ["pixel2mesh", "pixel2mesh_with_template"]:
             # Visualization renderer
             self.renderer = MeshRenderer(self.options.dataset.camera_f, self.options.dataset.camera_c,
                                          self.options.dataset.mesh_pos)
@@ -75,7 +76,7 @@ class Trainer(CheckpointRunner):
         )
 
         # Create loss functions
-        if self.options.model.name == "pixel2mesh":
+        if self.options.model.name in ["pixel2mesh", "pixel2mesh_with_template"]:
             self.criterion = P2MLoss(self.options.loss, self.ellipsoid).cuda()
         elif self.options.model.name == "classifier":
             self.criterion = CrossEntropyLoss()
@@ -99,12 +100,14 @@ class Trainer(CheckpointRunner):
         self.model.train()
 
         # predict with model
-        out = self.model(
-            {
+        if self.options.model.name == "pixel2mesh_with_template":
+            b = {
                 "images": input_batch["images"],
-                "coords": input_batch["coords"],
+                "init_pts": input_batch["init_pts"],
             }
-        )
+        else:
+            b = input_batch["images"]
+        out = self.model(b)
 
         # compute loss
         loss, loss_summary = self.criterion(out, input_batch)

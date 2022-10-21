@@ -9,8 +9,8 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from utils.mesh import Ellipsoid
-from utils.vis.renderer import MeshRenderer
+from p2m.utils.mesh import Ellipsoid
+from p2m.utils.vis.renderer import MeshRenderer
 
 # First Party Library
 from p2m.functions.base import CheckpointRunner

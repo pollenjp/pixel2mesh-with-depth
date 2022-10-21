@@ -18,7 +18,6 @@ from p2m.datasets.shapenet import ShapeNet
 from p2m.datasets.shapenet import ShapeNetImageFolder
 from p2m.datasets.shapenet import get_shapenet_collate
 from p2m.datasets.shapenet_with_template import ShapeNetWithTemplate
-from p2m.datasets.shapenet_with_template import get_shapenet_with_template_collate
 from p2m.functions.saver import CheckpointSaver
 
 
