@@ -765,7 +765,7 @@ numpy = "*"
 
 [package.source]
 type = "file"
-url = ".wheel/torch-1.1.0-cp37-cp37m-linux_x86_64.whl"
+url = ".wheel/download.pytorch.org/whl/cu90/torch-1.1.0-cp37-cp37m-linux_x86_64.whl"
 
 [[package]]
 name = "torchvision"
@@ -786,7 +786,7 @@ scipy = ["scipy"]
 
 [package.source]
 type = "file"
-url = ".wheel/torchvision-0.3.0-cp37-cp37m-manylinux1_x86_64.whl"
+url = ".wheel/download.pytorch.org/whl/cu90/torchvision-0.3.0-cp37-cp37m-manylinux1_x86_64.whl"
 
 [[package]]
 name = "trimesh"
@@ -899,7 +899,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7,<3.11"
-content-hash = "123d6d5f397fbbe9dfcab787ae322160279b1a94b2c874ca0c4b78a371c27a59"
+content-hash = "bc0ade0c1f18249c0d36a253b657ce699440dd1e5ed24ecdf0375504fc62592e"
 
 [metadata.files]
 absl-py = [

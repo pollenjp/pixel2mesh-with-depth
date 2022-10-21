@@ -17,8 +17,8 @@ tensorboardX = "^2.4.1"
 trimesh = "^3.9.42"
 Shapely = "^1.8.0"
 Pillow = "6.1"
-torch = { file = ".wheel/torch-1.1.0-cp37-cp37m-linux_x86_64.whl" }
-torchvision = { file = ".wheel/torchvision-0.3.0-cp37-cp37m-manylinux1_x86_64.whl" }
+torch = { file = ".wheel/download.pytorch.org/whl/cu90/torch-1.1.0-cp37-cp37m-linux_x86_64.whl" }
+torchvision = { file = ".wheel/download.pytorch.org/whl/cu90/torchvision-0.3.0-cp37-cp37m-manylinux1_x86_64.whl" }
 
 
 [tool.poetry.dev-dependencies]
