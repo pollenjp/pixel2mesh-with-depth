@@ -14,6 +14,7 @@ from p2m.models.classifier import Classifier
 from p2m.models.losses.classifier import CrossEntropyLoss
 from p2m.models.losses.p2m import P2MLoss
 from p2m.models.p2m import P2MModel
+from p2m.models.p2m_with_template import P2MModelWithTemplate
 
 
 class Trainer(CheckpointRunner):
@@ -32,7 +33,16 @@ class Trainer(CheckpointRunner):
         if shared_model is not None:
             self.model = shared_model
         else:
-            if self.options.model.name == "pixel2mesh":
+            if self.options.model.name == "pixel2mesh_with_template":
+                # create model
+                self.model = P2MModelWithTemplate(
+                    self.options.model,
+                    self.ellipsoid,
+                    self.options.dataset.camera_f,
+                    self.options.dataset.camera_c,
+                    self.options.dataset.mesh_pos
+                )
+            elif self.options.model.name == "pixel2mesh":
                 # create model
                 self.model = P2MModel(self.options.model, self.ellipsoid,
                                       self.options.dataset.camera_f, self.options.dataset.camera_c,
@@ -88,11 +98,13 @@ class Trainer(CheckpointRunner):
     def train_step(self, input_batch):
         self.model.train()
 
-        # Grab data from the batch
-        images = input_batch["images"]
-
         # predict with model
-        out = self.model(images)
+        out = self.model(
+            {
+                "images": input_batch["images"],
+                "coords": input_batch["coords"],
+            }
+        )
 
         # compute loss
         loss, loss_summary = self.criterion(out, input_batch)

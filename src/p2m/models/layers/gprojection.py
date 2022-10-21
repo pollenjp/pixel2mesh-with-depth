@@ -67,7 +67,7 @@ class GProjection(nn.Module):
         output = Q11 + Q21 + Q12 + Q22
         return output
 
-    def forward(self, resolution, img_features, inputs):
+    def calc_sample_points(self, resolution, inputs):
         half_resolution = (resolution - 1) / 2
         camera_c_offset = np.array(self.camera_c) - half_resolution
         # map to [-1, 1]
@@ -91,8 +91,14 @@ class GProjection(nn.Module):
             w = torch.clamp(w, min=-1, max=1)
             h = torch.clamp(h, min=-1, max=1)
 
+        return (w, h)
+
+    def forward(self, resolution, img_features, inputs):
+
+        w, h = self.calc_sample_points(resolution, inputs)
+
         feats = [inputs]
-        for img_feature in img_features:
+        for img_feature in img_features:  # each data in batch
             feats.append(self.project(resolution, img_feature, torch.stack([w, h], dim=-1)))
 
         output = torch.cat(feats, 2)

@@ -4,6 +4,7 @@ from pathlib import Path
 # dataset root
 DATASET_ROOT = Path("datasets") / "data"
 SHAPENET_ROOT = DATASET_ROOT / "shapenet"
+SHAPENET_WITH_TEMPLATE_ROOT = DATASET_ROOT / "shapenet_with_template"
 IMAGENET_ROOT = DATASET_ROOT / "imagenet"
 
 # ellipsoid path

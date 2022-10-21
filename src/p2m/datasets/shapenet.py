@@ -8,7 +8,6 @@ from pathlib import Path
 # Third Party Library
 import numpy as np
 import torch
-from datasets.base_dataset import BaseDataset
 from PIL import Image
 from skimage import io
 from skimage import transform
@@ -16,6 +15,7 @@ from torch.utils.data.dataloader import default_collate
 
 # First Party Library
 import config
+from p2m.datasets.base_dataset import BaseDataset
 
 
 class ShapeNet(BaseDataset):
@@ -49,9 +49,12 @@ class ShapeNet(BaseDataset):
 
     def __getitem__(self, index: int):
         if self.tensorflow:
-            filename = self.file_names[index][17:]
-            label = filename.split("/", maxsplit=1)[0]
-            pkl_path = self.file_root / "data_tf" / filename
+            # self.file_names[index] = "Data/ShapeNetP2M/04256520/1a201d0a99d841ca684b7bc3f8a9aa55/rendering/04.dat"
+            # filename = "04256520/1a201d0a99d841ca684b7bc3f8a9aa55/rendering/04.dat"
+            # relative_path = self.file_names[index][17:]
+            relative_path = Path(self.file_names[index][17:])
+            pkl_path = self.file_root / "data_tf" / relative_path
+            label = pkl_path.parents[2].name
             img_path = pkl_path.parent / f"{pkl_path.stem}.png"
             with open(pkl_path) as f:
                 data = pickle.load(open(pkl_path, 'rb'), encoding="latin1")
@@ -72,9 +75,10 @@ class ShapeNet(BaseDataset):
                 )
             img = img[:, :, :3].astype(np.float32)
         else:
-            label, filename = self.file_names[index].split("_", maxsplit=1)
-            with open(self.file_root / "data" / label / filename, "rb") as f:
-                data = pickle.load(f, encoding="latin1")
+            label, fpath = self.file_names[index].split("_", maxsplit=1)
+            relative_path = Path(fpath)
+            with open(self.file_root / "data" / label / relative_path, mode="rb") as f:  # type: ignore
+                data = pickle.load(f, encoding="latin1")  # type: ignore
 
             img, pts, normals = data[0].astype(np.float32) / 255.0, data[1][:, :3], data[1][:, 3:]
 
@@ -91,7 +95,7 @@ class ShapeNet(BaseDataset):
             "points": pts,
             "normals": normals,
             "labels": self.labels_map[label],
-            "filename": filename,
+            "filename": str(relative_path),
             "length": length
         }
 

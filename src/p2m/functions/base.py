@@ -8,15 +8,17 @@ from pathlib import Path
 # Third Party Library
 import torch
 import torch.nn
-from datasets.imagenet import ImageNet
-from datasets.shapenet import ShapeNet
-from datasets.shapenet import ShapeNetImageFolder
-from datasets.shapenet import get_shapenet_collate
 from tensorboardX import SummaryWriter
 from torch.utils.data.dataloader import default_collate
 
 # First Party Library
 import config
+from p2m.datasets.imagenet import ImageNet
+from p2m.datasets.shapenet import ShapeNet
+from p2m.datasets.shapenet import ShapeNetImageFolder
+from p2m.datasets.shapenet import get_shapenet_collate
+from p2m.datasets.shapenet_with_template import ShapeNetWithTemplate
+from p2m.datasets.shapenet_with_template import get_shapenet_with_template_collate
 from p2m.functions.saver import CheckpointSaver
 
 
@@ -68,9 +70,17 @@ class CheckpointRunner(object):
 
     def load_dataset(self, dataset, training):
         self.logger.info("Loading datasets: %s" % dataset.name)
-        if dataset.name == "shapenet":
+        if dataset.name == "shapenet_with_template":
+            return ShapeNetWithTemplate(
+                config.SHAPENET_WITH_TEMPLATE_ROOT,
+                dataset.subset_train if training else dataset.subset_eval,
+                dataset.mesh_pos,
+                dataset.normalization,
+                dataset.shapenet
+            )
+        elif dataset.name == "shapenet":
             return ShapeNet(
-                Path(config.SHAPENET_ROOT),
+                config.SHAPENET_ROOT,
                 dataset.subset_train if training else dataset.subset_eval,
                 dataset.mesh_pos,
                 dataset.normalization,
@@ -83,7 +93,9 @@ class CheckpointRunner(object):
         raise NotImplementedError("Unsupported dataset")
 
     def load_collate_fn(self, dataset, training):
-        if dataset.name == "shapenet":
+        if dataset.name == "shapenet_with_template":
+            return get_shapenet_collate(dataset.shapenet.num_points)
+        elif dataset.name == "shapenet":
             return get_shapenet_collate(dataset.shapenet.num_points)
         else:
             return default_collate
