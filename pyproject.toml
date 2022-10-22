@@ -28,7 +28,6 @@ autoflake8 = "^0.2.2"
 isort = "^5.10.1"
 mypy = "^0.931"
 nox = "^2022.1.7"
-poethepoet = "^0.12.0"
 tensorboard = "^2.8.0"
 
 [tool.poetry.group.dev.dependencies]
@@ -54,8 +53,3 @@ import_heading_localfolder = "Local Library"
 python_version = "3.7"
 warn_return_any = true
 warn_unused_configs = true
-
-[tool.poe.tasks]
-# <https://pytorch.org/get-started/previous-versions/#v110>
-force-cuda90 = "pip3 install torch==1.1.0 torchvision==0.3.0 -f https://download.pytorch.org/whl/cu90/torch_stable.html"
-force-neural-renderer = "pip3 install neural_renderer_pytorch"
