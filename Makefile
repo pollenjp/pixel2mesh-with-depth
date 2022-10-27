@@ -13,7 +13,7 @@ setup:
 
 .PHONY: clean
 clean:
-	rm -rf ".wheel"
+#	rm -rf ".wheel"
 	rm -rf ".venv"
 	rm -rf "external/chamfer/build"
 	rm -rf "external/chamfer/*.egg-info"
