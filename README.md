@@ -18,3 +18,7 @@ poetry run python src/entrypoint_train.py \
     --name=check-resnet \
     --options=./experiments/default/resnet.yml
 ```
+
+## Scripts
+
+- rust
