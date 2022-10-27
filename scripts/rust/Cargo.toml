@@ -9,3 +9,4 @@ edition = "2021"
 name = "small-dataset-extraction"
 
 [dependencies]
+clap = { version = "4.0.18", features = ["derive"] }
