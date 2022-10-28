@@ -14,7 +14,7 @@ dataset:
     - -0.8
   name: shapenet_with_template
   normalization: true
-  num_classes: 1
+  num_classes: 13
   predict:
     folder: /tmp
   shapenet:

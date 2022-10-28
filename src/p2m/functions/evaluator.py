@@ -5,15 +5,16 @@ from logging import Logger
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from p2m.utils.average_meter import AverageMeter
-from p2m.utils.mesh import Ellipsoid
-from p2m.utils.vis.renderer import MeshRenderer
 
 # First Party Library
 from p2m.functions.base import CheckpointRunner
 from p2m.models.classifier import Classifier
 from p2m.models.layers.chamfer_wrapper import ChamferDist
 from p2m.models.p2m import P2MModel
+from p2m.models.p2m_with_template import P2MModelWithTemplate
+from p2m.utils.average_meter import AverageMeter
+from p2m.utils.mesh import Ellipsoid
+from p2m.utils.vis.renderer import MeshRenderer
 
 
 class Evaluator(CheckpointRunner):
@@ -23,7 +24,7 @@ class Evaluator(CheckpointRunner):
 
     # noinspection PyAttributeOutsideInit
     def init_fn(self, shared_model=None, **kwargs):
-        if self.options.model.name == "pixel2mesh":
+        if self.options.model.name in ["pixel2mesh", "pixel2mesh_with_template"]:
             # Renderer for visualization
             self.renderer = MeshRenderer(self.options.dataset.camera_f, self.options.dataset.camera_c,
                                          self.options.dataset.mesh_pos)
@@ -40,7 +41,16 @@ class Evaluator(CheckpointRunner):
         if shared_model is not None:
             self.model = shared_model
         else:
-            if self.options.model.name == "pixel2mesh":
+            if self.options.model.name == "pixel2mesh_with_template":
+                # create model
+                self.model = P2MModelWithTemplate(
+                    self.options.model,
+                    self.ellipsoid,
+                    self.options.dataset.camera_f,
+                    self.options.dataset.camera_c,
+                    self.options.dataset.mesh_pos
+                )
+            elif self.options.model.name == "pixel2mesh":
                 # create model
                 self.model = P2MModel(self.options.model, self.ellipsoid,
                                       self.options.dataset.camera_f, self.options.dataset.camera_c,
@@ -100,10 +110,14 @@ class Evaluator(CheckpointRunner):
 
         # Run inference
         with torch.no_grad():
-            # Get ground truth
-            images = input_batch['images']
-
-            out = self.model(images)
+            if self.options.model.name == "pixel2mesh_with_template":
+                b = {
+                    "images": input_batch["images"],
+                    "init_pts": input_batch["init_pts"],
+                }
+            else:
+                b = input_batch["images"]
+            out = self.model(b)
 
             if self.options.model.name == "pixel2mesh":
                 pred_vertices = out["pred_coord"][-1]
@@ -130,7 +144,8 @@ class Evaluator(CheckpointRunner):
                                       shuffle=self.options.test.shuffle,
                                       collate_fn=self.dataset_collate_fn)
 
-        if self.options.model.name == "pixel2mesh":
+        # if self.options.model.name == "pixel2mesh":
+        if self.options.model.name in ["pixel2mesh", "pixel2mesh_with_template"]:
             self.chamfer_distance = [AverageMeter() for _ in range(self.num_classes)]
             self.f1_tau = [AverageMeter() for _ in range(self.num_classes)]
             self.f1_2tau = [AverageMeter() for _ in range(self.num_classes)]
@@ -174,7 +189,7 @@ class Evaluator(CheckpointRunner):
         return ret
 
     def get_result_summary(self):
-        if self.options.model.name == "pixel2mesh":
+        if self.options.model.name in ["pixel2mesh", "pixel2mesh_with_template"]:
             return {
                 "cd": self.average_of_average_meters(self.chamfer_distance),
                 "f1_tau": self.average_of_average_meters(self.f1_tau),
@@ -187,12 +202,22 @@ class Evaluator(CheckpointRunner):
             }
 
     def evaluate_summaries(self, input_batch, out_summary):
-        self.logger.info("Test Step %06d/%06d (%06d) " % (self.evaluate_step_count,
-                                                          len(self.dataset) // (
-                                                                  self.options.num_gpus * self.options.test.batch_size),
-                                                          self.total_step_count,) \
-                         + ", ".join([key + " " + (str(val) if isinstance(val, AverageMeter) else "%.6f" % val)
-                                      for key, val in self.get_result_summary().items()]))
+        self.logger.info(
+            "Test Step {:06d}/{:06d} ({:06d}) ".format(
+                self.evaluate_step_count,
+                len(self.dataset) // (
+                    self.options.num_gpus * self.options.test.batch_size
+                ),
+                self.total_step_count,
+            )
+            +
+            ", ".join(
+                [
+                    key + " " + (str(val) if isinstance(val, AverageMeter) else "%.6f" % val)
+                    for key, val in self.get_result_summary().items()
+                ]
+            )
+        )
 
         self.summary_writer.add_histogram("eval_labels", input_batch["labels"].cpu().numpy(),
                                           self.total_step_count)
