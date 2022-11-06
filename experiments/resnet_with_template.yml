@@ -22,7 +22,7 @@ dataset:
     resize_with_constant_border: false
   # subset_eval: test_tf
   # subset_train: train_tf
-  subset_eval: train_tf_small
+  subset_eval: test_tf_small
   subset_train: train_tf_small
 log_dir: logs
 log_level: info
@@ -50,7 +50,7 @@ model:
   z_threshold: 0
 name: p2m
 num_gpus: 1
-num_workers: 4
+num_workers: 8
 optim:
   adam_beta1: 0.9
   lr: 0.0001
