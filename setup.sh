@@ -26,6 +26,9 @@ function download_from_pytorch_wheel() {
     base_dir=".wheel"
     mkdir -p "${base_dir}"
     cd "${base_dir}"
-    download_from_pytorch_wheel torch 1.1.0 3.7 linux x86_64
-    download_from_pytorch_wheel torchvision 0.3.0 3.7 manylinux1 x86_64
+    python_version_xy="3.7"
+    torch_version_xyz="1.1.0"
+    torchvision_version_xyz="0.3.0"
+    download_from_pytorch_wheel torch "${torch_version_xyz}" "${python_version_xy}" linux x86_64
+    download_from_pytorch_wheel torchvision "${torchvision_version_xyz}" "${python_version_xy}" manylinux1 x86_64
 )
