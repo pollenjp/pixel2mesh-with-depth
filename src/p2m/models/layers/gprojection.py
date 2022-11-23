@@ -116,10 +116,19 @@ class GProjection(nn.Module):
             feature_shape = self.image_feature_shape(img_feat)
             points_w = sample_points[:, :, 0] / (img_shape[0] / feature_shape[0])
             points_h = sample_points[:, :, 1] / (img_shape[1] / feature_shape[1])
-            output = torch.stack([self.project_tensorflow(points_h[i], points_w[i],
-                                                          feature_shape, img_feat[i]) for i in range(img_feat.size(0))], 0)
+            output = torch.stack(
+                [
+                    self.project_tensorflow(points_h[i], points_w[i], feature_shape, img_feat[i])
+                    for i in range(img_feat.size(0))
+                ],
+                0,
+            )
         else:
-            output = F.grid_sample(img_feat, sample_points.unsqueeze(1))
+            output = F.grid_sample(img_feat, sample_points.unsqueeze(1), align_corners=True)
+            # torch/nn/functional.py:4215:
+            # UserWarning: Default grid_sample and affine_grid behavior has changed to align_corners=False since 1.3.0.
+            # Please specify align_corners=True if the old behavior is desired.
+            # See the documentation of grid_sample for details.
             output = torch.transpose(output.squeeze(2), 1, 2)
 
         return output

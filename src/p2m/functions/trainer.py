@@ -14,22 +14,22 @@ from p2m.models.p2m_with_template import P2MModelWithTemplate
 from p2m.utils.average_meter import AverageMeter
 from p2m.utils.mesh import Ellipsoid
 from p2m.utils.tensor import recursive_detach
-from p2m.utils.vis.renderer import MeshRenderer
+
+# from p2m.utils.vis.renderer import MeshRenderer
 
 
 class Trainer(CheckpointRunner):
 
     # noinspection PyAttributeOutsideInit
     def init_fn(self, shared_model=None, **kwargs):
-        # if self.options.model.name == "pixel2mesh":
+        self.renderer = None
+
         if self.options.model.name in ["pixel2mesh", "pixel2mesh_with_template"]:
             # Visualization renderer
-            self.renderer = MeshRenderer(self.options.dataset.camera_f, self.options.dataset.camera_c,
-                                         self.options.dataset.mesh_pos)
+            # self.renderer = MeshRenderer(self.options.dataset.camera_f, self.options.dataset.camera_c,
+            #                              self.options.dataset.mesh_pos)
             # create ellipsoid
             self.ellipsoid = Ellipsoid(self.options.dataset.mesh_pos)
-        else:
-            self.renderer = None
 
         if shared_model is not None:
             self.model = shared_model
@@ -41,13 +41,17 @@ class Trainer(CheckpointRunner):
                     self.ellipsoid,
                     self.options.dataset.camera_f,
                     self.options.dataset.camera_c,
-                    self.options.dataset.mesh_pos
+                    self.options.dataset.mesh_pos,
                 )
             elif self.options.model.name == "pixel2mesh":
                 # create model
-                self.model = P2MModel(self.options.model, self.ellipsoid,
-                                      self.options.dataset.camera_f, self.options.dataset.camera_c,
-                                      self.options.dataset.mesh_pos)
+                self.model = P2MModel(
+                    self.options.model,
+                    self.ellipsoid,
+                    self.options.dataset.camera_f,
+                    self.options.dataset.camera_c,
+                    self.options.dataset.mesh_pos,
+                )
             elif self.options.model.name == "classifier":
                 self.model = Classifier(self.options.model, self.options.dataset.num_classes)
             else:
@@ -60,14 +64,14 @@ class Trainer(CheckpointRunner):
                 params=list(self.model.parameters()),
                 lr=self.options.optim.lr,
                 betas=(self.options.optim.adam_beta1, 0.999),
-                weight_decay=self.options.optim.wd
+                weight_decay=self.options.optim.wd,
             )
         elif self.options.optim.name == "sgd":
             self.optimizer = torch.optim.SGD(
                 params=list(self.model.parameters()),
                 lr=self.options.optim.lr,
                 momentum=self.options.optim.sgd_momentum,
-                weight_decay=self.options.optim.wd
+                weight_decay=self.options.optim.wd,
             )
         else:
             raise NotImplementedError("Your optimizer is not found")
@@ -90,11 +94,10 @@ class Trainer(CheckpointRunner):
         self.evaluators = [Evaluator(self.options, self.logger, self.summary_writer, shared_model=self.model)]
 
     def models_dict(self):
-        return {'model': self.model}
+        return {"model": self.model}
 
     def optimizers_dict(self):
-        return {'optimizer': self.optimizer,
-                'lr_scheduler': self.lr_scheduler}
+        return {"optimizer": self.optimizer, "lr_scheduler": self.lr_scheduler}
 
     def train_step(self, input_batch):
         self.model.train()
@@ -127,12 +130,14 @@ class Trainer(CheckpointRunner):
             self.epoch_count += 1
 
             # Create a new data loader for every epoch
-            train_data_loader = DataLoader(self.dataset,
-                                           batch_size=self.options.train.batch_size * self.options.num_gpus,
-                                           num_workers=self.options.num_workers,
-                                           pin_memory=self.options.pin_memory,
-                                           shuffle=self.options.train.shuffle,
-                                           collate_fn=self.dataset_collate_fn)
+            train_data_loader = DataLoader(
+                self.dataset,
+                batch_size=self.options.train.batch_size * self.options.num_gpus,
+                num_workers=self.options.num_workers,
+                pin_memory=self.options.pin_memory,
+                shuffle=self.options.train.shuffle,
+                collate_fn=self.dataset_collate_fn,
+            )
 
             # Reset loss
             self.losses.reset()
@@ -169,9 +174,11 @@ class Trainer(CheckpointRunner):
         if self.renderer is not None:
             # Do visualization for the first 2 images of the batch
             render_mesh = self.renderer.p2m_batch_visualize(input_batch, out_summary, self.ellipsoid.faces)
+            # p2m_batch_visualize
             self.summary_writer.add_image("render_mesh", render_mesh, self.step_count)
-            self.summary_writer.add_histogram("length_distribution", input_batch["length"].cpu().numpy(),
-                                              self.step_count)
+            self.summary_writer.add_histogram(
+                "length_distribution", input_batch["length"].cpu().numpy(), self.step_count
+            )
 
         # Debug info for filenames
         self.logger.debug(input_batch["filename"])
@@ -181,11 +188,18 @@ class Trainer(CheckpointRunner):
             self.summary_writer.add_scalar(k, v, self.step_count)
 
         # Save results to log
-        self.logger.info("Epoch %03d, Step %06d/%06d, Time elapsed %s, Loss %.9f (%.9f)" % (
-            self.epoch_count, self.step_count,
-            self.options.train.num_epochs * len(self.dataset) // (
-                        self.options.train.batch_size * self.options.num_gpus),
-            self.time_elapsed, self.losses.val, self.losses.avg))
+        self.logger.info(
+            "Epoch {:03d}, Step {:06d}/{:06d}, Time elapsed {}, Loss {:.9f} ({:.9f})".format(
+                self.epoch_count,
+                self.step_count,
+                self.options.train.num_epochs
+                * len(self.dataset)
+                // (self.options.train.batch_size * self.options.num_gpus),
+                self.time_elapsed,
+                self.losses.val,
+                self.losses.avg,
+            )
+        )
 
     def test(self):
         for evaluator in self.evaluators:

@@ -1,5 +1,5 @@
 # Standard Library
-from collections import Iterable
+from collections.abc import Iterable
 
 # Third Party Library
 import numpy as np

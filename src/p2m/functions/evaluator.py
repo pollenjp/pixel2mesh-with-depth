@@ -4,38 +4,39 @@ from logging import Logger
 # Third Party Library
 import numpy as np
 import torch
+from pytorch3d.loss.chamfer import knn_points
 from torch.utils.data import DataLoader
 
 # First Party Library
 from p2m.functions.base import CheckpointRunner
 from p2m.models.classifier import Classifier
-from p2m.models.layers.chamfer_wrapper import ChamferDist
 from p2m.models.p2m import P2MModel
 from p2m.models.p2m_with_template import P2MModelWithTemplate
 from p2m.utils.average_meter import AverageMeter
 from p2m.utils.mesh import Ellipsoid
-from p2m.utils.vis.renderer import MeshRenderer
 
 
 class Evaluator(CheckpointRunner):
-
     def __init__(self, options, logger: Logger, writer, shared_model=None):
         super().__init__(options, logger, writer, training=False, shared_model=shared_model)
 
     # noinspection PyAttributeOutsideInit
     def init_fn(self, shared_model=None, **kwargs):
+        self.renderer = None
+
+        # TODO: remove
+        # if self.options.model.name in ["pixel2mesh"]:
+        #     # Renderer for visualization
+        #     self.renderer = MeshRenderer(
+        #         self.options.dataset.camera_f, self.options.dataset.camera_c, self.options.dataset.mesh_pos
+        #     )
+
         if self.options.model.name in ["pixel2mesh", "pixel2mesh_with_template"]:
-            # Renderer for visualization
-            self.renderer = MeshRenderer(self.options.dataset.camera_f, self.options.dataset.camera_c,
-                                         self.options.dataset.mesh_pos)
-            # Initialize distance module
-            self.chamfer = ChamferDist()
             # create ellipsoid
             self.ellipsoid = Ellipsoid(self.options.dataset.mesh_pos)
             # use weighted mean evaluation metrics or not
             self.weighted_mean = self.options.test.weighted_mean
-        else:
-            self.renderer = None
+
         self.num_classes = self.options.dataset.num_classes
 
         if shared_model is not None:
@@ -48,25 +49,29 @@ class Evaluator(CheckpointRunner):
                     self.ellipsoid,
                     self.options.dataset.camera_f,
                     self.options.dataset.camera_c,
-                    self.options.dataset.mesh_pos
+                    self.options.dataset.mesh_pos,
                 )
             elif self.options.model.name == "pixel2mesh":
                 # create model
-                self.model = P2MModel(self.options.model, self.ellipsoid,
-                                      self.options.dataset.camera_f, self.options.dataset.camera_c,
-                                      self.options.dataset.mesh_pos)
+                self.model = P2MModel(
+                    self.options.model,
+                    self.ellipsoid,
+                    self.options.dataset.camera_f,
+                    self.options.dataset.camera_c,
+                    self.options.dataset.mesh_pos,
+                )
             elif self.options.model.name == "classifier":
                 self.model = Classifier(self.options.model, self.options.dataset.num_classes)
             else:
                 raise NotImplementedError("Your model is not found")
-            self.model = torch.nn.DataParallel(self.model, device_ids=self.gpus).cuda()
+            self.model = torch.nn.parallel.DataParallel(self.model, device_ids=self.gpus).cuda()
 
         # Evaluate step count, useful in summary
         self.evaluate_step_count = 0
         self.total_step_count = 0
 
     def models_dict(self):
-        return {'model': self.model}
+        return {"model": self.model}
 
     def evaluate_f1(self, dis_to_pred, dis_to_gt, pred_length, gt_length, thresh):
         recall = np.sum(dis_to_gt < thresh) / gt_length
@@ -81,11 +86,13 @@ class Evaluator(CheckpointRunner):
         for i in range(batch_size):
             gt_length = gt_points[i].size(0)
             label = labels[i].cpu().item()
-            d1, d2, i1, i2 = self.chamfer(pred_vertices[i].unsqueeze(0), gt_points[i].unsqueeze(0))
-            d1, d2 = d1.cpu().numpy(), d2.cpu().numpy()  # convert to millimeter
+            # d1, d2, i1, i2 = self.chamfer(pred_vertices[i].unsqueeze(0), gt_points[i].unsqueeze(0))
+            knn1 = knn_points(pred_vertices[i].unsqueeze(0), gt_points[i].unsqueeze(0), K=1)
+            knn2 = knn_points(gt_points[i].unsqueeze(0), pred_vertices[i].unsqueeze(0), K=1)
+            d1, d2 = knn1.dists.cpu().numpy(), knn2.dists.cpu().numpy()  # convert to millimeter
             self.chamfer_distance[label].update(np.mean(d1) + np.mean(d2))
-            self.f1_tau[label].update(self.evaluate_f1(d1, d2, pred_length, gt_length, 1E-4))
-            self.f1_2tau[label].update(self.evaluate_f1(d1, d2, pred_length, gt_length, 2E-4))
+            self.f1_tau[label].update(self.evaluate_f1(d1, d2, pred_length, gt_length, 1e-4))
+            self.f1_2tau[label].update(self.evaluate_f1(d1, d2, pred_length, gt_length, 2e-4))
 
     def evaluate_accuracy(self, output, target):
         """Computes the accuracy over the k top predictions for the specified values of k"""
@@ -119,7 +126,8 @@ class Evaluator(CheckpointRunner):
                 b = input_batch["images"]
             out = self.model(b)
 
-            if self.options.model.name == "pixel2mesh":
+            # if self.options.model.name == "pixel2mesh":
+            if self.options.model.name in ["pixel2mesh", "pixel2mesh_with_template"]:
                 pred_vertices = out["pred_coord"][-1]
                 gt_points = input_batch["points_orig"]
                 if isinstance(gt_points, list):
@@ -137,12 +145,14 @@ class Evaluator(CheckpointRunner):
         # clear evaluate_step_count, but keep total count uncleared
         self.evaluate_step_count = 0
 
-        test_data_loader = DataLoader(self.dataset,
-                                      batch_size=self.options.test.batch_size * self.options.num_gpus,
-                                      num_workers=self.options.num_workers,
-                                      pin_memory=self.options.pin_memory,
-                                      shuffle=self.options.test.shuffle,
-                                      collate_fn=self.dataset_collate_fn)
+        test_data_loader = DataLoader(
+            self.dataset,
+            batch_size=self.options.test.batch_size * self.options.num_gpus,
+            num_workers=self.options.num_workers,
+            pin_memory=self.options.pin_memory,
+            shuffle=self.options.test.shuffle,
+            collate_fn=self.dataset_collate_fn,
+        )
 
         # if self.options.model.name == "pixel2mesh":
         if self.options.model.name in ["pixel2mesh", "pixel2mesh_with_template"]:
@@ -179,7 +189,7 @@ class Evaluator(CheckpointRunner):
     def average_of_average_meters(self, average_meters):
         s = sum([meter.sum for meter in average_meters])
         c = sum([meter.count for meter in average_meters])
-        weighted_avg = s / c if c > 0 else 0.
+        weighted_avg = s / c if c > 0 else 0.0
         avg = sum([meter.avg for meter in average_meters]) / len(average_meters)
         ret = AverageMeter()
         if self.weighted_mean:
@@ -205,13 +215,10 @@ class Evaluator(CheckpointRunner):
         self.logger.info(
             "Test Step {:06d}/{:06d} ({:06d}) ".format(
                 self.evaluate_step_count,
-                len(self.dataset) // (
-                    self.options.num_gpus * self.options.test.batch_size
-                ),
+                len(self.dataset) // (self.options.num_gpus * self.options.test.batch_size),
                 self.total_step_count,
             )
-            +
-            ", ".join(
+            + ", ".join(
                 [
                     key + " " + (str(val) if isinstance(val, AverageMeter) else "%.6f" % val)
                     for key, val in self.get_result_summary().items()
@@ -219,8 +226,7 @@ class Evaluator(CheckpointRunner):
             )
         )
 
-        self.summary_writer.add_histogram("eval_labels", input_batch["labels"].cpu().numpy(),
-                                          self.total_step_count)
+        self.summary_writer.add_histogram("eval_labels", input_batch["labels"].cpu().numpy(), self.total_step_count)
         if self.renderer is not None:
             # Do visualization for the first 2 images of the batch
             render_mesh = self.renderer.p2m_batch_visualize(input_batch, out_summary, self.ellipsoid.faces)

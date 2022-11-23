@@ -1,5 +1,4 @@
 # Third Party Library
-import chamfer
 import torch
 import torch.nn as nn
 from torch.autograd import Function
@@ -24,6 +23,7 @@ class ChamferFunction(Function):
         idx1 = idx1.cuda()
         idx2 = idx2.cuda()
 
+        # TODO: Replace chamfer to pytorhc3d
         chamfer.forward(xyz1, xyz2, dist1, dist2, idx1, idx2)
         ctx.save_for_backward(xyz1, xyz2, idx1, idx2)
         return dist1, dist2, idx1, idx2
@@ -39,6 +39,7 @@ class ChamferFunction(Function):
 
         gradxyz1 = gradxyz1.cuda()
         gradxyz2 = gradxyz2.cuda()
+        # TODO: Replace chamfer to pytorhc3d
         chamfer.backward(xyz1, xyz2, gradxyz1, gradxyz2, graddist1, graddist2, idx1, idx2)
         return gradxyz1, gradxyz2
 
