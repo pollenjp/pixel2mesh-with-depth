@@ -5,55 +5,8 @@ from pathlib import Path
 
 # Third Party Library
 import matplotlib.pyplot as plt
-import numpy as np
-import numpy.typing as npt
 import torch
-from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d.axes3d import Axes3D
-
-
-@dataclass
-class PlotData:
-    array: npt.NDArray[np.uint8]
-    title: str | None = None
-    axis: str | None = None
-    xlabel: str | None = None
-    ylabel: str | None = None
-
-
-def add_subplot_to_figure(
-    plot_data_list: list[PlotData],
-    fig: Figure,
-    nrows: int,
-    ncols: int,
-    *,
-    start_idx: int = 0,
-) -> Figure:
-    """template plot function
-
-    Args:
-        plot_list :
-        nrows (int) : the number of rows
-        ncols (int) : the number of columns
-        idx (int) :
-        fig (matpltlib.pyplot.figure) :
-
-    Doc Style : google, http://www.sphinx-doc.org/ja/stable/ext/example_google.html#example-google
-    """
-
-    d: PlotData
-    for d in plot_data_list:
-        start_idx += 1
-        ax = fig.add_subplot(nrows, ncols, start_idx)
-        ax.imshow(d.array)
-        if d.title is not None:
-            ax.set_title(label=d.title)
-        if d.xlabel is not None:
-            ax.set_xlabel(xlabel=d.xlabel)
-        if d.ylabel is not None:
-            ax.set_ylabel(ylabel=d.ylabel)
-
-    return fig
 
 
 def plot_pointcloud_to_axes(
