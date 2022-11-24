@@ -3,7 +3,6 @@ import os
 import time
 from datetime import timedelta
 from logging import Logger
-from pathlib import Path
 
 # Third Party Library
 import torch
@@ -22,8 +21,9 @@ from p2m.functions.saver import CheckpointSaver
 
 
 class CheckpointRunner(object):
-    def __init__(self, options, logger: Logger, summary_writer: SummaryWriter,
-                 dataset=None, training=True, shared_model=None):
+    def __init__(
+        self, options, logger: Logger, summary_writer: SummaryWriter, dataset=None, training=True, shared_model=None
+    ):
         self.options = options
         self.logger = logger
 
@@ -35,8 +35,12 @@ class CheckpointRunner(object):
             self.gpus = list(map(int, os.environ["CUDA_VISIBLE_DEVICES"].split(",")))
             self.options.num_gpus = len(self.gpus)
             enumerate_gpus = list(range(self.options.num_gpus))
-            logger.info("CUDA is asking for " + str(self.gpus) + ", PyTorch to doing a mapping, changing it to " +
-                        str(enumerate_gpus))
+            logger.info(
+                "CUDA is asking for "
+                + str(self.gpus)
+                + ", PyTorch to doing a mapping, changing it to "
+                + str(enumerate_gpus)
+            )
             self.gpus = enumerate_gpus
         else:
             self.gpus = list(range(self.options.num_gpus))
@@ -63,8 +67,9 @@ class CheckpointRunner(object):
 
         if shared_model is None:
             # checkpoint is loaded if any
-            self.saver = CheckpointSaver(self.logger, checkpoint_dir=str(self.options.checkpoint_dir),
-                                         checkpoint_file=self.options.checkpoint)
+            self.saver = CheckpointSaver(
+                self.logger, checkpoint_dir=str(self.options.checkpoint_dir), checkpoint_file=self.options.checkpoint
+            )
             self.init_with_checkpoint()
 
     def load_dataset(self, dataset, training):
@@ -75,7 +80,7 @@ class CheckpointRunner(object):
                 dataset.subset_train if training else dataset.subset_eval,
                 dataset.mesh_pos,
                 dataset.normalization,
-                dataset.shapenet
+                dataset.shapenet,
             )
         elif dataset.name == "shapenet":
             return ShapeNet(
@@ -83,7 +88,7 @@ class CheckpointRunner(object):
                 dataset.subset_train if training else dataset.subset_eval,
                 dataset.mesh_pos,
                 dataset.normalization,
-                dataset.shapenet
+                dataset.shapenet,
             )
         elif dataset.name == "shapenet_demo":
             return ShapeNetImageFolder(dataset.predict.folder, dataset.normalization, dataset.shapenet)
@@ -100,15 +105,15 @@ class CheckpointRunner(object):
             return default_collate
 
     def init_fn(self, shared_model=None, **kwargs):
-        raise NotImplementedError('You need to provide an _init_fn method')
+        raise NotImplementedError("You need to provide an_init_fn method")
 
     # Pack models and optimizers in a dict - necessary for checkpointing
-    def models_dict(self):
-        return None
+    def models_dict(self) -> dict:
+        raise NotImplementedError("You need to provide a models_dict method")
 
-    def optimizers_dict(self):
+    def optimizers_dict(self) -> dict:
         # NOTE: optimizers and models cannot have conflicting names
-        return None
+        raise NotImplementedError("You need to provide a optimizers_dict method")
 
     def init_with_checkpoint(self):
         checkpoint = self.saver.load_checkpoint()
@@ -117,7 +122,7 @@ class CheckpointRunner(object):
             return
         for model_name, model in self.models_dict().items():
             if model_name in checkpoint:
-                if isinstance(model, torch.nn.DataParallel):
+                if isinstance(model, torch.nn.parallel.DataParallel):
                     model.module.load_state_dict(checkpoint[model_name], strict=False)
                 else:
                     model.load_state_dict(checkpoint[model_name], strict=False)
@@ -133,12 +138,9 @@ class CheckpointRunner(object):
             self.step_count = checkpoint["total_step_count"]
 
     def dump_checkpoint(self):
-        checkpoint = {
-            "epoch": self.epoch_count,
-            "total_step_count": self.step_count
-        }
+        checkpoint = {"epoch": self.epoch_count, "total_step_count": self.step_count}
         for model_name, model in self.models_dict().items():
-            if isinstance(model, torch.nn.DataParallel):
+            if isinstance(model, torch.nn.parallel.DataParallel):
                 checkpoint[model_name] = model.module.state_dict()
             else:
                 checkpoint[model_name] = model.state_dict()
