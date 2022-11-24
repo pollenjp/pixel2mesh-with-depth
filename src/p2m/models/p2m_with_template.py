@@ -12,7 +12,6 @@ from p2m.models.layers.gprojection import GProjection
 
 
 class P2MModelWithTemplate(nn.Module):
-
     def __init__(self, options, ellipsoid, camera_f, camera_c, mesh_pos):
         # ellipsoid は隣接行列と次元数を渡すために使用
         super().__init__()
@@ -25,29 +24,46 @@ class P2MModelWithTemplate(nn.Module):
         self.nn_encoder, self.nn_decoder = get_backbone(options)
         self.features_dim = self.nn_encoder.features_dim + self.coord_dim
 
-        self.gcns = nn.ModuleList([
-            GBottleneck(6, self.features_dim, self.hidden_dim, self.coord_dim,
-                        ellipsoid.adj_mat[0], activation=self.gconv_activation),
-            GBottleneck(6, self.features_dim + self.hidden_dim, self.hidden_dim, self.coord_dim,
-                        ellipsoid.adj_mat[1], activation=self.gconv_activation),
-            GBottleneck(6, self.features_dim + self.hidden_dim, self.hidden_dim, self.last_hidden_dim,
-                        ellipsoid.adj_mat[2], activation=self.gconv_activation)
-        ])
+        self.gcns = nn.ModuleList(
+            [
+                GBottleneck(
+                    6,
+                    self.features_dim,
+                    self.hidden_dim,
+                    self.coord_dim,
+                    ellipsoid.adj_mat[0],
+                    activation=self.gconv_activation,
+                ),
+                GBottleneck(
+                    6,
+                    self.features_dim + self.hidden_dim,
+                    self.hidden_dim,
+                    self.coord_dim,
+                    ellipsoid.adj_mat[1],
+                    activation=self.gconv_activation,
+                ),
+                GBottleneck(
+                    6,
+                    self.features_dim + self.hidden_dim,
+                    self.hidden_dim,
+                    self.last_hidden_dim,
+                    ellipsoid.adj_mat[2],
+                    activation=self.gconv_activation,
+                ),
+            ]
+        )
 
-        self.unpooling = nn.ModuleList([
-            GUnpooling(ellipsoid.unpool_idx[0]),
-            GUnpooling(ellipsoid.unpool_idx[1])
-        ])
+        self.unpooling = nn.ModuleList([GUnpooling(ellipsoid.unpool_idx[0]), GUnpooling(ellipsoid.unpool_idx[1])])
 
         # if options.align_with_tensorflow:
         #     self.projection = GProjection
         # else:
         #     self.projection = GProjection
-        self.projection = GProjection(mesh_pos, camera_f, camera_c, bound=options.z_threshold,
-                                      tensorflow_compatible=options.align_with_tensorflow)
+        self.projection = GProjection(
+            mesh_pos, camera_f, camera_c, bound=options.z_threshold, tensorflow_compatible=options.align_with_tensorflow
+        )
 
-        self.gconv = GConv(in_features=self.last_hidden_dim, out_features=self.coord_dim,
-                           adj_mat=ellipsoid.adj_mat[2])
+        self.gconv = GConv(in_features=self.last_hidden_dim, out_features=self.coord_dim, adj_mat=ellipsoid.adj_mat[2])
 
     def forward(self, batch):
         img = batch["images"]
@@ -87,8 +103,4 @@ class P2MModelWithTemplate(nn.Module):
         else:
             reconst = None
 
-        return {
-            "pred_coord": [x1, x2, x3],
-            "pred_coord_before_deform": [init_pts, x1_up, x2_up],
-            "reconst": reconst
-        }
+        return {"pred_coord": [x1, x2, x3], "pred_coord_before_deform": [init_pts, x1_up, x2_up], "reconst": reconst}
