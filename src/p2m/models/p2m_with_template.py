@@ -1,9 +1,14 @@
+# Standard Library
+import typing as t
+from dataclasses import dataclass
+
 # Third Party Library
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 # First Party Library
+from p2m.datasets.shapenet_with_template import P2MWithTemplateBatchData
 from p2m.models.backbones import get_backbone
 from p2m.models.layers.gbottleneck import GBottleneck
 from p2m.models.layers.gconv import GConv
@@ -65,12 +70,11 @@ class P2MModelWithTemplate(nn.Module):
 
         self.gconv = GConv(in_features=self.last_hidden_dim, out_features=self.coord_dim, adj_mat=ellipsoid.adj_mat[2])
 
-    def forward(self, batch):
+    def forward(self, batch: P2MWithTemplateBatchData):
         img = batch["images"]
         img_feats = self.nn_encoder(img)
         img_shape = self.projection.image_feature_shape(img)
 
-        # TODO: ここにテンプレートメッシュの座標データを入れる
         # axis: (batch_size, num_points, 3)
         init_pts = batch["init_pts"]
         # GCN Block 1
@@ -103,4 +107,14 @@ class P2MModelWithTemplate(nn.Module):
         else:
             reconst = None
 
-        return {"pred_coord": [x1, x2, x3], "pred_coord_before_deform": [init_pts, x1_up, x2_up], "reconst": reconst}
+        return {
+            "pred_coord": [x1, x2, x3],
+            "pred_coord_before_deform": [init_pts, x1_up, x2_up],
+            "reconst": reconst,
+        }
+
+
+class P2MModelWithTemplateForwardReturn(t.TypedDict):
+    pred_coord: list[torch.Tensor]  # (3,) arary. Each element is (batch_size, num_points, 3)
+    pred_coord_before_deform: list[torch.Tensor]  # [init_pts, x1_up, x2_up]
+    reconst: torch.Tensor  # TODO: ???

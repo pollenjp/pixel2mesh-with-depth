@@ -2,6 +2,7 @@
 import os
 import pprint
 from argparse import ArgumentParser
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -14,9 +15,123 @@ from tensorboardX import SummaryWriter
 # First Party Library
 from p2m.logger import create_logger
 
+
+@dataclass
+class OptionsDatasetShapenet:
+    num_points: int
+    resize_with_constant_border: bool
+
+
+@dataclass
+class OptionsDatasetPredict:
+    folder: str
+
+
+@dataclass
+class OptionsDataset:
+    name = "shapenet"
+    subset_train = "train_small"
+    subset_eval = "test_small"
+    camera_f = [248.0, 248.0]
+    camera_c = [111.5, 111.5]
+    mesh_pos = [0.0, 0.0, -0.8]
+    normalization = True
+    num_classes = 13
+
+    shapenet: OptionsDatasetShapenet
+    predict: OptionsDatasetPredict
+
+
+@dataclass
+class OptionsModel:
+    name: str
+    hidden_dim: int
+    last_hidden_dim: int
+    coord_dim: int
+    backbone: str
+    gconv_activation: bool
+
+    # provide a boundary for z, so that z will never be equal to 0, on denominator
+    # if z is greater than 0, it will never be less than z;
+    # if z is less than 0, it will never be greater than z.
+    z_threshold: int
+
+    # align with original tensorflow model
+    # please follow experiments/tensorflow.yml
+    align_with_tensorflow: bool
+
+
+@dataclass
+class OptionsLossWeights:
+    normal: float
+    edge: float
+    laplace: float
+    move: float
+    constant: float
+    chamfer: list[float]
+    chamfer_opposite: float
+    reconst: float
+
+
+@dataclass
+class OptionsLoss:
+    weights: OptionsLossWeights
+
+
+@dataclass
+class OptionsTrian:
+    num_epochs: int
+    batch_size: int
+    summary_steps: int
+    checkpoint_steps: int
+    test_epochs: int
+    use_augmentation: bool
+    shuffle: bool
+
+
+@dataclass
+class OptionsTest:
+    summary_steps: int
+    batch_size: int
+    shuffle: bool
+    weighted_mean: bool
+
+
+@dataclass
+class OptionsOptim:
+    name: str
+    adam_beta1: float
+    sgd_momentum: float
+    lr: float
+    wd: float
+    lr_step: list[int]  # 2 elements
+    lr_factor: float
+
+
+@dataclass
+class Options:
+    name: str
+    version: str | None
+    num_workers: int
+    num_gpus: int
+    pin_memory: bool
+
+    log_dir: str
+    log_level: str
+    summary_dir: str
+    checkpoint_dir: str
+    checkpoint: str | None  # Checkpointへのpath
+    dataset: OptionsDataset
+    model: OptionsModel
+    loss: OptionsLoss
+    train: OptionsTrian
+    test: OptionsTest
+    optim: OptionsOptim
+
+
 options = edict()
 
-options.name = 'p2m'
+options.name = "p2m"
 options.version = None
 options.num_workers = 1
 options.num_gpus = 1
@@ -32,9 +147,9 @@ options.dataset = edict()
 options.dataset.name = "shapenet"
 options.dataset.subset_train = "train_small"
 options.dataset.subset_eval = "test_small"
-options.dataset.camera_f = [248., 248.]
+options.dataset.camera_f = [248.0, 248.0]
 options.dataset.camera_c = [111.5, 111.5]
-options.dataset.mesh_pos = [0., 0., -0.8]
+options.dataset.mesh_pos = [0.0, 0.0, -0.8]
 options.dataset.normalization = True
 options.dataset.num_classes = 13
 
@@ -66,10 +181,10 @@ options.loss.weights.normal = 1.6e-4
 options.loss.weights.edge = 0.3
 options.loss.weights.laplace = 0.5
 options.loss.weights.move = 0.1
-options.loss.weights.constant = 1.
-options.loss.weights.chamfer = [1., 1., 1.]
-options.loss.weights.chamfer_opposite = 1.
-options.loss.weights.reconst = 0.
+options.loss.weights.constant = 1.0
+options.loss.weights.chamfer = [1.0, 1.0, 1.0]
+options.loss.weights.chamfer_opposite = 1.0
+options.loss.weights.reconst = 0.0
 
 options.train = edict()
 options.train.num_epochs = 50
@@ -91,8 +206,8 @@ options.optim = edict()
 options.optim.name = "adam"
 options.optim.adam_beta1 = 0.9
 options.optim.sgd_momentum = 0.9
-options.optim.lr = 5.0E-5
-options.optim.wd = 1.0E-6
+options.optim.lr = 5.0e-5
+options.optim.wd = 1.0e-6
 options.optim.lr_step = [30, 45]
 options.optim.lr_factor = 0.1
 
@@ -114,7 +229,7 @@ def _update_options(options_file: Path):
     # in the first round, MODEL.NAME is located so that we can initialize MODEL.EXTRA
     # in the second round, we update everything
 
-    with open(options_file, mode='rt') as f:
+    with open(options_file, mode="rt") as f:
         options_dict = yaml.safe_load(f)
         # do a dfs on `BASED_ON` options files
         if "based_on" in options_dict:
@@ -140,18 +255,18 @@ def gen_options(options_file):
 
     cfg = to_dict(options)
 
-    with open(options_file, 'w') as f:
+    with open(options_file, "w") as f:
         yaml.safe_dump(dict(cfg), f, default_flow_style=False)
 
 
 def slugify(filename):
     filename = os.path.relpath(filename, ".")
     if filename.startswith("experiments/"):
-        filename = filename[len("experiments/"):]
+        filename = filename[len("experiments/") :]
     return os.path.splitext(filename)[0].lower().replace("/", "_").replace(".", "_")
 
 
-def reset_options(options, args, phase='train'):
+def reset_options(options, args, phase="train"):
     if hasattr(args, "batch_size") and args.batch_size:
         options.train.batch_size = options.test.batch_size = args.batch_size
     if hasattr(args, "version") and args.version:
@@ -173,24 +288,24 @@ def reset_options(options, args, phase='train'):
         prefix = ""
         if args.options:
             prefix = slugify(args.options) + "_"
-        options.version = prefix + datetime.now().strftime('%m%d%H%M%S')  # ignore %Y
+        options.version = prefix + datetime.now().strftime("%m%d%H%M%S")  # ignore %Y
     options.log_dir = os.path.join(options.log_dir, options.name)
-    print('=> creating {}'.format(options.log_dir))
+    print("=> creating {}".format(options.log_dir))
     os.makedirs(options.log_dir, exist_ok=True)
 
     options.checkpoint_dir = os.path.join(options.checkpoint_dir, options.name, options.version)
-    print('=> creating {}'.format(options.checkpoint_dir))
+    print("=> creating {}".format(options.checkpoint_dir))
     os.makedirs(options.checkpoint_dir, exist_ok=True)
 
     options.summary_dir = os.path.join(options.summary_dir, options.name, options.version)
-    print('=> creating {}'.format(options.summary_dir))
+    print("=> creating {}".format(options.summary_dir))
     os.makedirs(options.summary_dir, exist_ok=True)
 
     logger = create_logger(options, phase=phase)
     options_text = pprint.pformat(vars(options))
     logger.info(options_text)
 
-    print('=> creating summary writer')
+    print("=> creating summary writer")
     writer = SummaryWriter(options.summary_dir)
 
     return logger, writer
