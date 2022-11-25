@@ -21,7 +21,7 @@ class AverageMeter(object):
 
     def update(self, val, n=1):
         if isinstance(val, torch.Tensor):
-            val = val.cpu().numpy()
+            val = val.cpu().detach().numpy()
         if isinstance(val, Iterable):
             val = np.array(val)
             self.update(np.mean(np.array(val)), n=val.size)

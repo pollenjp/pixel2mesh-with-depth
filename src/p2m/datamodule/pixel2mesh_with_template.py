@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 
 # First Party Library
 from p2m.datasets.shapenet_with_template import ShapeNetWithTemplate
+from p2m.datasets.shapenet_with_template import get_shapenet_collate
 
 logger = getLogger(__name__)
 logger.addHandler(NullHandler())
@@ -59,7 +60,7 @@ class ShapeNetWithTemplateDataModule(pl.LightningDataModule):
             pin_memory=True,
             shuffle=True,
             drop_last=True,
-            # collate_fn=collate_fn,
+            collate_fn=get_shapenet_collate(self.options.dataset.shapenet.num_points),
         )
 
         return train_dataloader
@@ -78,7 +79,7 @@ class ShapeNetWithTemplateDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             shuffle=False,
-            # collate_fn=collate_fn,
+            collate_fn=get_shapenet_collate(self.options.dataset.shapenet.num_points),
         )
 
         return val_dataloader
@@ -105,20 +106,3 @@ class ShapeNetWithTemplateDataModule(pl.LightningDataModule):
         )
 
         return test_dataloader
-
-    # def transfer_batch_to_device(self, batch: Any, device: Optional[torch.device] = None):
-    #     """move all tensors in your custom data structure to the device
-    #     * <https://pytorch-lightning.readthedocs.io/en/stable/lightning_module.html#transfer-batch-to-device>
-    #     * <https://pytorch-lightning.readthedocs.io/en/latest/datamodules.html#transfer-batch-to-device>
-    #     """
-    #     logger.debug(f"{inspect.getframeinfo(inspect.currentframe()).function} - start (device={device})")
-
-    #     if not isinstance(batch, ShapeNetBatchDataPair):
-    #         # batch = super().transfer_batch_to_device(batch, device)
-    #         raise ValueError(f"{type(batch)} is not supported!")
-
-    #     for member_key, member_val in batch.__dict__.items():
-    #         if torch.is_tensor(member_val):
-    #             member_val: torch.Tensor
-    #             batch.__dict__[member_key] = member_val.to(device)
-    #     return batch

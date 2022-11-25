@@ -1,5 +1,6 @@
 # Standard Library
 import argparse
+import datetime
 import sys
 import typing as t
 from pathlib import Path
@@ -62,9 +63,12 @@ def main():
 
     model = P2MModelWithTemplateModule(options=options)
 
-    logger_root_path = Path("logs") / "lightning_logs" / "options.name"
+    logger_root_path = (
+        Path("logs") / "lightning_logs" / f"{options.name}" / f"{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
+    )
 
-    pl_loggers: list[Logger] = [TensorBoardLogger(save_dir=logger_root_path, name=options.name)]
+    pl_loggers: list[Logger] = [TensorBoardLogger(save_dir=logger_root_path / "tensorboard", name=options.name)]
+
     ckpt_path: Path | None = None
 
     trainer: pl.Trainer = pl.Trainer(
@@ -77,16 +81,19 @@ def main():
                 monitor="val_loss",
                 save_last=True,
                 save_top_k=5,
-                dirpath=logger_root_path,
-                filename="{epoch}-{step}",
+                dirpath=logger_root_path / "model-checkpoint",
+                filename="{val_loss:.8f}-{epoch}-{step}",
             ),
             LearningRateMonitor(logging_interval="epoch"),
             EarlyStopping(
                 monitor="val_loss",
+                patience=10,
             ),
         ],
         auto_select_gpus=True,
         resume_from_checkpoint=ckpt_path,
+        accelerator="gpu",
+        devices=1,
     )
 
     # fit

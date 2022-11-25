@@ -36,9 +36,7 @@ class ShapeNet(BaseDataset):
         with open(self.file_root / "meta" / "shapenet.json", "r") as fp:
             labels_map = sorted(list(json.load(fp).keys()))
 
-        self.labels_map: t.Dict[str, int] = {
-            k: i for i, k in enumerate(labels_map)
-        }
+        self.labels_map: t.Dict[str, int] = {k: i for i, k in enumerate(labels_map)}
         # Read file list
         with open(self.file_root / "meta" / f"{file_list_name}.txt", mode="rt") as fp:
             self.file_names = fp.read().split("\n")[:-1]
@@ -57,16 +55,13 @@ class ShapeNet(BaseDataset):
             label = pkl_path.parents[2].name
             img_path = pkl_path.parent / f"{pkl_path.stem}.png"
             with open(pkl_path) as f:
-                data = pickle.load(open(pkl_path, 'rb'), encoding="latin1")
+                data = pickle.load(open(pkl_path, "rb"), encoding="latin1")
             pts, normals = data[:, :3], data[:, 3:]
             img = io.imread(img_path)
             img[np.where(img[:, :, 3] == 0)] = 255
             if self.resize_with_constant_border:
                 img = transform.resize(
-                    img,
-                    (config.IMG_SIZE, config.IMG_SIZE),
-                    mode='constant',
-                    anti_aliasing=False
+                    img, (config.IMG_SIZE, config.IMG_SIZE), mode="constant", anti_aliasing=False
                 )  # to match behavior of old versions
             else:
                 img = transform.resize(
@@ -96,7 +91,7 @@ class ShapeNet(BaseDataset):
             "normals": normals,
             "labels": self.labels_map[label],
             "filename": str(relative_path),
-            "length": length
+            "length": length,
         }
 
     def __len__(self):
@@ -104,7 +99,6 @@ class ShapeNet(BaseDataset):
 
 
 class ShapeNetImageFolder(BaseDataset):
-
     def __init__(self, folder, normalization, shapenet_options):
         super().__init__()
         self.normalization = normalization
@@ -129,8 +123,7 @@ class ShapeNetImageFolder(BaseDataset):
             img[np.where(img[:, :, 3] == 0)] = 255
 
         if self.resize_with_constant_border:
-            img = transform.resize(img, (config.IMG_SIZE, config.IMG_SIZE),
-                                   mode='constant', anti_aliasing=False)
+            img = transform.resize(img, (config.IMG_SIZE, config.IMG_SIZE), mode="constant", anti_aliasing=False)
         else:
             img = transform.resize(img, (config.IMG_SIZE, config.IMG_SIZE))
         img = img[:, :, :3].astype(np.float32)
@@ -138,11 +131,7 @@ class ShapeNetImageFolder(BaseDataset):
         img = torch.from_numpy(np.transpose(img, (2, 0, 1)))
         img_normalized = self.normalize_img(img) if self.normalization else img
 
-        return {
-            "images": img_normalized,
-            "images_orig": img,
-            "filepath": self.file_list[item]
-        }
+        return {"images": img_normalized, "images_orig": img, "filepath": self.file_list[item]}
 
     def __len__(self):
         return len(self.file_list)
@@ -153,6 +142,7 @@ def get_shapenet_collate(num_points):
     :param num_points: This option will not be activated when batch size = 1
     :return: shapenet_collate function
     """
+
     def shapenet_collate(batch):
         if len(batch) > 1:
             all_equal = True

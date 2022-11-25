@@ -1,8 +1,13 @@
+# Standard Library
+import typing as t
+
 # Third Party Library
 import numpy as np
 import numpy.typing as npt
 import pytorch_lightning as pl
 import torch
+from pytorch3d.loss.chamfer import chamfer_distance
+from pytorch3d.loss.chamfer import knn_points
 
 # First Party Library
 from p2m.datasets.shapenet_with_template import P2MWithTemplateBatchData
@@ -14,6 +19,18 @@ from p2m.options import Options
 from p2m.utils import pl_loggers
 from p2m.utils.average_meter import AverageMeter
 from p2m.utils.mesh import Ellipsoid
+
+
+def calc_f1_score(
+    dis_to_pred: torch.Tensor,
+    dis_to_gt: torch.Tensor,
+    pred_length: int,
+    gt_length: int,
+    thresh: float,
+) -> torch.Tensor:
+    recall = (dis_to_gt < thresh).sum() / gt_length
+    precision = (dis_to_pred < thresh).sum() / pred_length
+    return 2 * precision * recall / (precision + recall + 1e-8)
 
 
 class P2MModelWithTemplateModule(pl.LightningModule):
@@ -71,6 +88,8 @@ class P2MModelWithTemplateModule(pl.LightningModule):
         *,
         phase_name: str = "train",
     ) -> None:
+        batch_size: int = len(batch["images"])
+
         if batch_idx == 0:
             self.training_epoch_start(phase_name=phase_name)
 
@@ -87,7 +106,7 @@ class P2MModelWithTemplateModule(pl.LightningModule):
         # step
         self.solver.step()
 
-        self.log(name="train_loss", value=loss)
+        self.log(name="train_loss", value=loss, batch_size=batch_size)
 
         for loss_name, avg_meter in self.train_epoch_loss_avg_meters.items():
             avg_meter.update(summary[loss_name])
@@ -117,6 +136,8 @@ class P2MModelWithTemplateModule(pl.LightningModule):
     ):
         self.val_global_step += 1
 
+        batch_size: int = len(batch["images"])
+
         if batch_idx == 0:
             self.validation_epoch_start(phase_name=phase_name)
 
@@ -124,10 +145,52 @@ class P2MModelWithTemplateModule(pl.LightningModule):
         summary: P2MLossForwardReturnSecondDict
         _, summary = self.p2m_loss(preds, batch)
 
-        self.log(name=f"{phase_name}_loss", value=summary["loss"])
+        # for monitor label
+        self.log(name=f"{phase_name}_loss", value=summary["loss"], batch_size=batch_size)
 
         for loss_name, avg_meter in self.val_epoch_loss_avg_meters.items():
             avg_meter.update(summary[loss_name])
+            self.log(name=f"{phase_name}/{loss_name}", value=summary[loss_name], batch_size=batch_size)
+
+        # calculate evaluation metrics
+        pred_vertices = preds["pred_coord"][-1]
+        gt_points = batch["points_orig"]
+
+        total_chamfer_distance = 0.0
+        total_f1_tau = 0.0
+        total_f1_2tau = 0.0
+
+        for i, (label, pred_v, gt_v) in enumerate(zip(batch["labels"], pred_vertices, gt_points)):
+            pred_v = pred_v.unsqueeze(0)
+            gt_v = gt_v.unsqueeze(0)
+
+            # chamfer distance
+            cd = t.cast(
+                torch.Tensor,
+                chamfer_distance(pred_v, gt_v)[0],
+            )
+            self.log(name=f"{phase_name}_eval_cd/{label}", value=cd, batch_size=1)
+            total_chamfer_distance += cd
+
+            # f1 score
+            knn1 = knn_points(pred_v, gt_v, K=1)
+            knn2 = knn_points(gt_v, pred_v, K=1)
+            dis_to_pred = knn1.dists.squeeze(2)
+            dis_to_gt = knn2.dists.squeeze(2)
+            pred_length = pred_v.size(0)
+            gt_length = gt_v.size(0)
+            tau: float = 1e-4
+            f1_tau = calc_f1_score(dis_to_pred, dis_to_gt, pred_length, gt_length, thresh=tau)
+            f1_2tau = calc_f1_score(dis_to_pred, dis_to_gt, pred_length, gt_length, thresh=2 * tau)
+
+            self.log(name=f"{phase_name}_eval_f1_tau/{label}", value=f1_tau, batch_size=1)
+            self.log(name=f"{phase_name}_eval_f1_2tau/{label}", value=f1_2tau, batch_size=1)
+            total_f1_tau += f1_tau
+            total_f1_2tau += f1_2tau
+
+        self.log(name=f"{phase_name}_eval_cd", value=total_chamfer_distance, batch_size=batch_size)
+        self.log(name=f"{phase_name}_eval_f1_tau", value=total_f1_tau, batch_size=batch_size)
+        self.log(name=f"{phase_name}_eval_f1_2tau", value=total_f1_2tau, batch_size=batch_size)
 
         if batch_idx == 0:
 

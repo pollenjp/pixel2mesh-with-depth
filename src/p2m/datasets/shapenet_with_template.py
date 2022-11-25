@@ -10,6 +10,7 @@ import numpy.typing as npt
 import torch
 from skimage import io
 from skimage import transform
+from torch.utils.data.dataloader import default_collate
 
 # First Party Library
 import config
@@ -30,36 +31,6 @@ def extract_coords_from_obj_file(obj_filepath: Path) -> t.List[t.List[float]]:
             coords.append(list(map(float, xyz)))
 
     return coords
-
-
-class ShapeNetLabelUnit(t.TypedDict):
-    id: str
-    name: str
-
-
-class P2MWithTemplateDataUnit(t.TypedDict):
-    images: torch.Tensor  # (3, 224, 224)
-    images_orig: torch.Tensor  # (3, 224, 224)
-    points: npt.NDArray  # (num_points, 3)
-    normals: npt.NDArray  # (num_points, 3)
-    labels: ShapeNetLabelUnit
-    filename: str
-    length: int
-
-    # template mesh's coordinates
-    # (num_points, 3)
-    init_pts: torch.Tensor  # (num_points, 3)
-
-
-class P2MWithTemplateBatchData(t.TypedDict):
-    images: torch.Tensor  # (batch_size, 3, 224, 224)
-    images_orig: torch.Tensor  # (batch_size, 3, 224, 224)
-    points: list[npt.NDArray]  # (batch_size, ) array. Each element's size is (num_points, 3)
-    normals: list[npt.NDArray]  # (batch_size, ) array. Each element's size is (num_points, 3)
-    labels: list[ShapeNetLabelUnit]
-    filename: list[str]
-    length: list[int]
-    init_pts: torch.Tensor  # (batch_size, num_points, 3)
 
 
 class ShapeNetWithTemplate(BaseDataset):
@@ -90,7 +61,7 @@ class ShapeNetWithTemplate(BaseDataset):
         self.mesh_pos = mesh_pos
         self.resize_with_constant_border = shapenet_options.resize_with_constant_border
 
-    def __getitem__(self, index: int) -> P2MWithTemplateDataUnit:
+    def __getitem__(self, index: int) -> dict[str, t.Any]:
         filename = self.file_names[index][17:]
         label = filename.split("/", maxsplit=1)[0]
         pkl_path = self.file_root / "data_tf" / filename
@@ -138,3 +109,64 @@ class ShapeNetWithTemplate(BaseDataset):
 
     def __len__(self):
         return len(self.file_names)
+
+
+class P2MWithTemplateDataUnit(t.TypedDict):
+    images: torch.Tensor  # (3, 224, 224)
+    images_orig: torch.Tensor  # (3, 224, 224)
+    points: npt.NDArray  # (num_points, 3)
+    normals: npt.NDArray  # (num_points, 3)
+    labels: torch.Tensor
+    filename: str
+    length: int
+
+    # template mesh's coordinates
+    # (num_points, 3)
+    init_pts: torch.Tensor  # (num_points, 3)
+
+
+def get_shapenet_collate(num_points):
+    """
+    :param num_points: This option will not be activated when batch size = 1
+    :return: shapenet_collate function
+    """
+
+    def shapenet_collate(batch: list[P2MWithTemplateDataUnit]):
+        if len(batch) > 1:
+            all_equal = True
+            for b in batch:
+                if b["length"] != batch[0]["length"]:
+                    all_equal = False
+                    break
+            points_orig, normals_orig = [], []
+            if not all_equal:
+                for b in batch:
+                    pts, normal = b["points"], b["normals"]
+                    length = pts.shape[0]
+                    choices = np.resize(np.random.permutation(length), num_points)
+                    b["points"], b["normals"] = pts[choices], normal[choices]
+                    points_orig.append(torch.from_numpy(pts))
+                    normals_orig.append(torch.from_numpy(normal))
+                ret = default_collate(batch)
+                ret["points_orig"] = points_orig
+                ret["normals_orig"] = normals_orig
+                return ret
+        ret = default_collate(batch)
+        ret["points_orig"] = ret["points"]
+        ret["normals_orig"] = ret["normals"]
+        return ret
+
+    return shapenet_collate
+
+
+class P2MWithTemplateBatchData(t.TypedDict):
+    images: torch.Tensor  # (batch_size, 3, 224, 224)
+    images_orig: torch.Tensor  # (batch_size, 3, 224, 224)
+    points: torch.Tensor  # (batch_size, num_points, 3)
+    normals: torch.Tensor  # (batch_size, num_points, 3)
+    points_orig: list[torch.Tensor] | torch.Tensor
+    normals_orig: list[torch.Tensor] | torch.Tensor
+    labels: torch.Tensor
+    filename: list[str]
+    length: list[int]
+    init_pts: torch.Tensor  # (batch_size, num_points, 3)
