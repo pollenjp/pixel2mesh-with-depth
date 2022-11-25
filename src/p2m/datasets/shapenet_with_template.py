@@ -97,7 +97,7 @@ class ShapeNetWithTemplate(BaseDataset):
 
         return {
             "images": img_normalized,
-            "images_orig": img,
+            "images_orig": img,  # torch.uint8
             "points": pts,
             "normals": normals,
             "labels": self.labels_map[label],
@@ -113,7 +113,7 @@ class ShapeNetWithTemplate(BaseDataset):
 
 class P2MWithTemplateDataUnit(t.TypedDict):
     images: torch.Tensor  # (3, 224, 224)
-    images_orig: torch.Tensor  # (3, 224, 224)
+    images_orig: torch.Tensor  # (3, 224, 224), torch.uint8
     points: npt.NDArray  # (num_points, 3)
     normals: npt.NDArray  # (num_points, 3)
     labels: torch.Tensor

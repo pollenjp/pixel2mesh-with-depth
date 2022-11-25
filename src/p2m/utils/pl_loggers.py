@@ -4,6 +4,7 @@ from logging import getLogger
 # Third Party Library
 import numpy as np
 import numpy.typing as npt
+import torch
 from pytorch_lightning.loggers import Logger
 from pytorch_lightning.loggers import TensorBoardLogger
 
@@ -21,15 +22,22 @@ def pl_log_scalar(pl_logger: Logger, tag: str, scalar: float | int, global_step:
         logger.error(error_msg)
 
 
-def pl_log_images(pl_logger: Logger, tag: str, imgs_arr: npt.NDArray[np.uint8], global_step: int) -> None:
+def pl_log_images(
+    pl_logger: Logger, tag: str, imgs_arr: torch.Tensor | npt.NDArray[np.uint8], global_step: int
+) -> None:
     if isinstance(pl_logger, TensorBoardLogger):
         logger.debug(f"pl_logger = {pl_logger}")
         logger.debug(f"imgs_arr.shape = {imgs_arr.shape}")
         # > add_images(tag, img_tensor, global_step=None, walltime=None, dataformats='NCHW')
         # > <https://tensorboardx.readthedocs.io/en/latest/tensorboard.html#tensorboardX.SummaryWriter.add_images>
-        pl_logger.experiment.add_images(
-            tag=tag, img_tensor=imgs_arr, global_step=global_step, walltime=None, dataformats="NHWC"
-        )
+        if isinstance(imgs_arr, torch.Tensor):
+            pl_logger.experiment.add_images(
+                tag=tag, img_tensor=imgs_arr, global_step=global_step, walltime=None, dataformats="NCHW"
+            )
+        elif isinstance(imgs_arr, np.ndarray):
+            pl_logger.experiment.add_images(
+                tag=tag, img_tensor=imgs_arr, global_step=global_step, walltime=None, dataformats="NHWC"
+            )
     else:
         error_msg: str = f"{pl_logger} dones't support image logging"
         logger.error(error_msg)

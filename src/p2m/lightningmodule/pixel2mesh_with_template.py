@@ -2,10 +2,12 @@
 import typing as t
 
 # Third Party Library
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import pytorch_lightning as pl
 import torch
+from mpl_toolkits.mplot3d.axes3d import Axes3D
 from pytorch3d.loss.chamfer import chamfer_distance
 from pytorch3d.loss.chamfer import knn_points
 
@@ -31,6 +33,55 @@ def calc_f1_score(
     recall = (dis_to_gt < thresh).sum() / gt_length
     precision = (dis_to_pred < thresh).sum() / pred_length
     return 2 * precision * recall / (precision + recall + 1e-8)
+
+
+def plot_point_cloud(vertices: t.Sequence[torch.Tensor] | torch.Tensor, num_cols: int = 2) -> npt.NDArray[np.uint8]:
+    """_summary_
+
+    Args:
+        vertices (torch.Tensor):
+            Size (num_batch_size, num_vertices, 3)
+
+    Returns:
+        npt.NDArray[np.uint8]: _description_
+    """
+
+    num_plot = len(vertices)
+    num_rows = (num_plot // num_cols) + (0 if num_plot % num_cols == 0 else 1)
+    figure_size_unit = 2
+
+    fig = plt.figure(
+        facecolor="white",
+        figsize=(figure_size_unit * num_cols, figure_size_unit * num_rows),
+        tight_layout=True,
+    )
+
+    for i, vs in enumerate(vertices):
+        # vs: (num_vertices, 3)
+        x, y, z = vs.detach().cpu().squeeze().unbind(1)
+        ax = t.cast(Axes3D, fig.add_subplot(num_rows, num_cols, i + 1, projection="3d"))
+        ax.scatter3D(x, y, z, s=0.05)
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.set_zlabel("z")
+
+        # 右手系にする
+        ax.invert_xaxis()
+        ax.invert_yaxis()
+        view_elev, view_azim = 20, 135
+        ax.view_init(elev=view_elev, azim=view_azim)
+
+    # fig.subplots_adjust(wspace=0.5, hspace=0.3)
+    space = 5.0
+    fig.subplots_adjust(wspace=space, hspace=space)
+    fig.canvas.draw()
+
+    img: npt.NDArray = np.frombuffer(buffer=fig.canvas.tostring_rgb(), dtype=np.uint8)
+    img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+    plt.close(fig)
+
+    return img
 
 
 class P2MModelWithTemplateModule(pl.LightningModule):
@@ -153,15 +204,15 @@ class P2MModelWithTemplateModule(pl.LightningModule):
             self.log(name=f"{phase_name}/{loss_name}", value=summary[loss_name], batch_size=batch_size)
 
         # calculate evaluation metrics
-        pred_vertices = preds["pred_coord"][-1]
-        gt_points = batch["points_orig"]
+        pred_vertices = preds["pred_coord"][-1]  # (batch_size, num_vertices, 3)
+        gt_points = batch["points_orig"]  # (batch_size, ) array. torch.Tensor(num_points, 3)
 
         total_chamfer_distance = 0.0
         total_f1_tau = 0.0
         total_f1_2tau = 0.0
 
         for i, (label, pred_v, gt_v) in enumerate(zip(batch["labels"], pred_vertices, gt_points)):
-            pred_v = pred_v.unsqueeze(0)
+            pred_v = pred_v.unsqueeze(0)  # (1, num_vertices, 3)
             gt_v = gt_v.unsqueeze(0)
 
             # chamfer distance
@@ -175,10 +226,10 @@ class P2MModelWithTemplateModule(pl.LightningModule):
             # f1 score
             knn1 = knn_points(pred_v, gt_v, K=1)
             knn2 = knn_points(gt_v, pred_v, K=1)
-            dis_to_pred = knn1.dists.squeeze(2)
-            dis_to_gt = knn2.dists.squeeze(2)
-            pred_length = pred_v.size(0)
-            gt_length = gt_v.size(0)
+            dis_to_pred = knn1.dists.squeeze(0).squeeze(1)  # (num_gt_points, )
+            dis_to_gt = knn2.dists.squeeze(0).squeeze(1)
+            pred_length = dis_to_pred.size(0)
+            gt_length = dis_to_gt.size(0)
             tau: float = 1e-4
             f1_tau = calc_f1_score(dis_to_pred, dis_to_gt, pred_length, gt_length, thresh=tau)
             f1_2tau = calc_f1_score(dis_to_pred, dis_to_gt, pred_length, gt_length, thresh=2 * tau)
@@ -188,13 +239,28 @@ class P2MModelWithTemplateModule(pl.LightningModule):
             total_f1_tau += f1_tau
             total_f1_2tau += f1_2tau
 
-        self.log(name=f"{phase_name}_eval_cd", value=total_chamfer_distance, batch_size=batch_size)
-        self.log(name=f"{phase_name}_eval_f1_tau", value=total_f1_tau, batch_size=batch_size)
-        self.log(name=f"{phase_name}_eval_f1_2tau", value=total_f1_2tau, batch_size=batch_size)
+        self.log(name=f"{phase_name}_eval_cd", value=total_chamfer_distance / batch_size, batch_size=batch_size)
+        self.log(name=f"{phase_name}_eval_f1_tau", value=total_f1_tau / batch_size, batch_size=batch_size)
+        self.log(name=f"{phase_name}_eval_f1_2tau", value=total_f1_2tau / batch_size, batch_size=batch_size)
 
         if batch_idx == 0:
+            self.log_image(
+                tag=f"{phase_name}_imgs",
+                imgs_arr=batch["images_orig"],
+                global_step=self.val_global_step,
+            )
 
-            pass
+            self.log_image(
+                tag=f"{phase_name}_vertices/gt_pred",
+                imgs_arr=np.array(
+                    [
+                        plot_point_cloud(vertices=gt_points, num_cols=1),
+                        plot_point_cloud(vertices=batch["init_pts"], num_cols=1),
+                        plot_point_cloud(vertices=pred_vertices, num_cols=1),
+                    ]
+                ),
+                global_step=self.val_global_step,
+            )
 
         return
 
@@ -288,7 +354,7 @@ class P2MModelWithTemplateModule(pl.LightningModule):
     def log_image(
         self,
         tag: str,
-        imgs_arr: npt.NDArray[np.uint8],
+        imgs_arr: torch.Tensor | npt.NDArray[np.uint8],
         global_step: int,
     ) -> None:
 
