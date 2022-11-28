@@ -1,6 +1,5 @@
 # Standard Library
 import typing as t
-from dataclasses import dataclass
 
 # Third Party Library
 import torch
@@ -60,10 +59,6 @@ class P2MModelWithTemplate(nn.Module):
 
         self.unpooling = nn.ModuleList([GUnpooling(ellipsoid.unpool_idx[0]), GUnpooling(ellipsoid.unpool_idx[1])])
 
-        # if options.align_with_tensorflow:
-        #     self.projection = GProjection
-        # else:
-        #     self.projection = GProjection
         self.projection = GProjection(
             mesh_pos, camera_f, camera_c, bound=options.z_threshold, tensorflow_compatible=options.align_with_tensorflow
         )

@@ -125,7 +125,7 @@ class P2MWithTemplateDataUnit(t.TypedDict):
     init_pts: torch.Tensor  # (num_points, 3)
 
 
-def get_shapenet_collate(num_points):
+def get_shapenet_collate(num_points: int):
     """
     :param num_points: This option will not be activated when batch size = 1
     :return: shapenet_collate function

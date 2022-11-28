@@ -81,7 +81,6 @@ class OptionsLoss:
 @dataclass
 class OptionsTrian:
     num_epochs: int
-    batch_size: int
     summary_steps: int
     checkpoint_steps: int
     test_epochs: int
@@ -92,7 +91,6 @@ class OptionsTrian:
 @dataclass
 class OptionsTest:
     summary_steps: int
-    batch_size: int
     shuffle: bool
     weighted_mean: bool
 
@@ -124,6 +122,7 @@ class Options:
     dataset: OptionsDataset
     model: OptionsModel
     loss: OptionsLoss
+    batch_size: int
     train: OptionsTrian
     test: OptionsTest
     optim: OptionsOptim
@@ -142,6 +141,7 @@ options.log_level = "info"
 options.summary_dir = "summary"
 options.checkpoint_dir = "checkpoints"
 options.checkpoint = None
+options.batch_size = 4
 
 options.dataset = edict()
 options.dataset.name = "shapenet"
@@ -188,7 +188,6 @@ options.loss.weights.reconst = 0.0
 
 options.train = edict()
 options.train.num_epochs = 50
-options.train.batch_size = 4
 options.train.summary_steps = 50
 options.train.checkpoint_steps = 10000
 options.train.test_epochs = 1
@@ -198,7 +197,6 @@ options.train.shuffle = True
 options.test = edict()
 options.test.dataset = []
 options.test.summary_steps = 50
-options.test.batch_size = 4
 options.test.shuffle = False
 options.test.weighted_mean = False
 

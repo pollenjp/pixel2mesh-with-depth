@@ -11,33 +11,46 @@ from pytorch_lightning.loggers import TensorBoardLogger
 logger = getLogger(__name__)
 
 
-def pl_log_scalar(pl_logger: Logger, tag: str, scalar: float | int, global_step: int) -> None:
-
-    if isinstance(pl_logger, TensorBoardLogger):
-        # > add_images(tag, img_tensor, global_step=None, walltime=None, dataformats='NCHW')
-        # > <https://tensorboardx.readthedocs.io/en/latest/tensorboard.html#tensorboardX.SummaryWriter.add_images>
-        pl_logger.experiment.add_scalar(tag=tag, scalar_value=scalar, global_step=global_step)
+def pl_log_scalar(pl_logger: Logger | list[Logger], tag: str, scalar: float | int, global_step: int) -> None:
+    pl_loggers: list[Logger]
+    if isinstance(pl_logger, Logger):
+        pl_loggers = [pl_logger]
     else:
-        error_msg: str = f"{pl_logger} doesn't support scalar logging"
-        logger.error(error_msg)
+        pl_loggers = pl_logger
+
+    for pl_l in pl_loggers:
+        if isinstance(pl_l, TensorBoardLogger):
+            # > add_images(tag, img_tensor, global_step=None, walltime=None, dataformats='NCHW')
+            # > <https://tensorboardx.readthedocs.io/en/latest/tensorboard.html#tensorboardX.SummaryWriter.add_images>
+            pl_l.experiment.add_scalar(tag=tag, scalar_value=scalar, global_step=global_step)
+        else:
+            error_msg: str = f"{pl_l} doesn't support scalar logging"
+            logger.error(error_msg)
 
 
 def pl_log_images(
-    pl_logger: Logger, tag: str, imgs_arr: torch.Tensor | npt.NDArray[np.uint8], global_step: int
+    pl_logger: Logger | list[Logger], tag: str, imgs_arr: torch.Tensor | npt.NDArray[np.uint8], global_step: int
 ) -> None:
-    if isinstance(pl_logger, TensorBoardLogger):
-        logger.debug(f"pl_logger = {pl_logger}")
-        logger.debug(f"imgs_arr.shape = {imgs_arr.shape}")
-        # > add_images(tag, img_tensor, global_step=None, walltime=None, dataformats='NCHW')
-        # > <https://tensorboardx.readthedocs.io/en/latest/tensorboard.html#tensorboardX.SummaryWriter.add_images>
-        if isinstance(imgs_arr, torch.Tensor):
-            pl_logger.experiment.add_images(
-                tag=tag, img_tensor=imgs_arr, global_step=global_step, walltime=None, dataformats="NCHW"
-            )
-        elif isinstance(imgs_arr, np.ndarray):
-            pl_logger.experiment.add_images(
-                tag=tag, img_tensor=imgs_arr, global_step=global_step, walltime=None, dataformats="NHWC"
-            )
+    pl_loggers: list[Logger]
+    if isinstance(pl_logger, Logger):
+        pl_loggers = [pl_logger]
     else:
-        error_msg: str = f"{pl_logger} dones't support image logging"
-        logger.error(error_msg)
+        pl_loggers = pl_logger
+
+    for pl_l in pl_loggers:
+        if isinstance(pl_l, TensorBoardLogger):
+            logger.debug(f"pl_logger = {pl_l}")
+            logger.debug(f"imgs_arr.shape = {imgs_arr.shape}")
+            # > add_images(tag, img_tensor, global_step=None, walltime=None, dataformats='NCHW')
+            # > <https://tensorboardx.readthedocs.io/en/latest/tensorboard.html#tensorboardX.SummaryWriter.add_images>
+            if isinstance(imgs_arr, torch.Tensor):
+                pl_l.experiment.add_images(
+                    tag=tag, img_tensor=imgs_arr, global_step=global_step, walltime=None, dataformats="NCHW"
+                )
+            elif isinstance(imgs_arr, np.ndarray):
+                pl_l.experiment.add_images(
+                    tag=tag, img_tensor=imgs_arr, global_step=global_step, walltime=None, dataformats="NHWC"
+                )
+        else:
+            error_msg: str = f"{pl_l} dones't support image logging"
+            logger.warning(error_msg)

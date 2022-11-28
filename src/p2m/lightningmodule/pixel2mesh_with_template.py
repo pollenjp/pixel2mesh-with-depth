@@ -2,12 +2,9 @@
 import typing as t
 
 # Third Party Library
-import matplotlib.pyplot as plt
 import numpy as np
-import numpy.typing as npt
 import pytorch_lightning as pl
 import torch
-from mpl_toolkits.mplot3d.axes3d import Axes3D
 from pytorch3d.loss.chamfer import chamfer_distance
 from pytorch3d.loss.chamfer import knn_points
 
@@ -20,68 +17,9 @@ from p2m.models.p2m_with_template import P2MModelWithTemplateForwardReturn
 from p2m.options import Options
 from p2m.utils import pl_loggers
 from p2m.utils.average_meter import AverageMeter
+from p2m.utils.eval import calc_f1_score
 from p2m.utils.mesh import Ellipsoid
-
-
-def calc_f1_score(
-    dis_to_pred: torch.Tensor,
-    dis_to_gt: torch.Tensor,
-    pred_length: int,
-    gt_length: int,
-    thresh: float,
-) -> torch.Tensor:
-    recall = (dis_to_gt < thresh).sum() / gt_length
-    precision = (dis_to_pred < thresh).sum() / pred_length
-    return 2 * precision * recall / (precision + recall + 1e-8)
-
-
-def plot_point_cloud(vertices: t.Sequence[torch.Tensor] | torch.Tensor, num_cols: int = 2) -> npt.NDArray[np.uint8]:
-    """_summary_
-
-    Args:
-        vertices (torch.Tensor):
-            Size (num_batch_size, num_vertices, 3)
-
-    Returns:
-        npt.NDArray[np.uint8]: _description_
-    """
-
-    num_plot = len(vertices)
-    num_rows = (num_plot // num_cols) + (0 if num_plot % num_cols == 0 else 1)
-    figure_size_unit = 2
-
-    fig = plt.figure(
-        facecolor="white",
-        figsize=(figure_size_unit * num_cols, figure_size_unit * num_rows),
-        tight_layout=True,
-    )
-
-    for i, vs in enumerate(vertices):
-        # vs: (num_vertices, 3)
-        x, y, z = vs.detach().cpu().squeeze().unbind(1)
-        ax = t.cast(Axes3D, fig.add_subplot(num_rows, num_cols, i + 1, projection="3d"))
-        ax.scatter3D(x, y, z, s=0.05)
-        ax.set_xlabel("x")
-        ax.set_ylabel("y")
-        ax.set_zlabel("z")
-
-        # 右手系にする
-        ax.invert_xaxis()
-        ax.invert_yaxis()
-        view_elev, view_azim = 20, 135
-        ax.view_init(elev=view_elev, azim=view_azim)
-
-    # fig.subplots_adjust(wspace=0.5, hspace=0.3)
-    space = 5.0
-    fig.subplots_adjust(wspace=space, hspace=space)
-    fig.canvas.draw()
-
-    img: npt.NDArray = np.frombuffer(buffer=fig.canvas.tostring_rgb(), dtype=np.uint8)
-    img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-
-    plt.close(fig)
-
-    return img
+from p2m.utils.render import plot_point_cloud
 
 
 class P2MModelWithTemplateModule(pl.LightningModule):
@@ -168,7 +106,8 @@ class P2MModelWithTemplateModule(pl.LightningModule):
 
     def training_epoch_end(self, training_step_outputs, *, phase_name: str = "train") -> None:
         for loss_name, avg_meter in self.train_epoch_loss_avg_meters.items():
-            self.log_scalar(
+            pl_loggers.pl_log_scalar(
+                pl_logger=self.loggers,
                 tag=f"{phase_name}/epoch_{loss_name}",
                 scalar=avg_meter.avg,
                 global_step=self.current_epoch,
@@ -244,13 +183,15 @@ class P2MModelWithTemplateModule(pl.LightningModule):
         self.log(name=f"{phase_name}_eval_f1_2tau", value=total_f1_2tau / batch_size, batch_size=batch_size)
 
         if batch_idx == 0:
-            self.log_image(
+            pl_loggers.pl_log_images(
+                pl_logger=self.loggers,
                 tag=f"{phase_name}_imgs",
                 imgs_arr=batch["images_orig"],
                 global_step=self.val_global_step,
             )
 
-            self.log_image(
+            pl_loggers.pl_log_images(
+                pl_logger=self.loggers,
                 tag=f"{phase_name}_vertices/gt_pred",
                 imgs_arr=np.array(
                     [
@@ -271,7 +212,8 @@ class P2MModelWithTemplateModule(pl.LightningModule):
         phase_name: str = "val",
     ) -> None:
         for loss_name, avg_meter in self.val_epoch_loss_avg_meters.items():
-            self.log_scalar(
+            pl_loggers.pl_log_scalar(
+                pl_logger=self.loggers,
                 tag=f"{phase_name}/epoch_{loss_name}",
                 scalar=avg_meter.avg,
                 global_step=self.current_epoch,
@@ -335,33 +277,3 @@ class P2MModelWithTemplateModule(pl.LightningModule):
         ]
 
         return optimizers, lr_scheculers
-
-    def log_scalar(
-        self,
-        tag: str,
-        scalar: float | int,
-        global_step: int,
-    ) -> None:
-
-        for pl_logger in self.loggers:
-            pl_loggers.pl_log_scalar(
-                pl_logger=pl_logger,
-                tag=tag,
-                scalar=scalar,
-                global_step=global_step,
-            )
-
-    def log_image(
-        self,
-        tag: str,
-        imgs_arr: torch.Tensor | npt.NDArray[np.uint8],
-        global_step: int,
-    ) -> None:
-
-        for pl_logger in self.loggers:
-            pl_loggers.pl_log_images(
-                pl_logger=pl_logger,
-                tag=tag,
-                imgs_arr=imgs_arr,
-                global_step=global_step,
-            )

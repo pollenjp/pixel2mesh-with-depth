@@ -56,7 +56,7 @@ def main():
     dm = ShapeNetWithTemplateDataModule(
         data_root_path=dataset_root_path,
         options=options,
-        batch_size=options.train.batch_size,
+        batch_size=options.batch_size,
         num_workers=options.num_workers,
         random_seed=random_seed,
     )
@@ -87,7 +87,7 @@ def main():
             LearningRateMonitor(logging_interval="epoch"),
             EarlyStopping(
                 monitor="val_loss",
-                patience=10,
+                patience=20,
             ),
         ],
         auto_select_gpus=True,
