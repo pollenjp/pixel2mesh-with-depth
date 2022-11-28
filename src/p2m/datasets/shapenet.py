@@ -7,6 +7,7 @@ from pathlib import Path
 
 # Third Party Library
 import numpy as np
+import numpy.typing as npt
 import torch
 from PIL import Image
 from skimage import io
@@ -137,13 +138,23 @@ class ShapeNetImageFolder(BaseDataset):
         return len(self.file_list)
 
 
-def get_shapenet_collate(num_points):
+class P2MDataUnit(t.TypedDict):
+    images: torch.Tensor  # (3, 224, 224)
+    images_orig: torch.Tensor  # (3, 224, 224), torch.uint8
+    points: npt.NDArray  # (num_points, 3)
+    normals: npt.NDArray  # (num_points, 3)
+    labels: torch.Tensor
+    filename: str
+    length: int
+
+
+def get_shapenet_collate(num_points: int):
     """
     :param num_points: This option will not be activated when batch size = 1
     :return: shapenet_collate function
     """
 
-    def shapenet_collate(batch):
+    def shapenet_collate(batch: list[P2MDataUnit]):
         if len(batch) > 1:
             all_equal = True
             for b in batch:
@@ -169,3 +180,15 @@ def get_shapenet_collate(num_points):
         return ret
 
     return shapenet_collate
+
+
+class P2MBatchData(t.TypedDict):
+    images: torch.Tensor  # (batch_size, 3, 224, 224)
+    images_orig: torch.Tensor  # (batch_size, 3, 224, 224)
+    points: torch.Tensor  # (batch_size, num_points, 3)
+    normals: torch.Tensor  # (batch_size, num_points, 3)
+    points_orig: list[torch.Tensor] | torch.Tensor
+    normals_orig: list[torch.Tensor] | torch.Tensor
+    labels: torch.Tensor
+    filename: list[str]
+    length: list[int]
