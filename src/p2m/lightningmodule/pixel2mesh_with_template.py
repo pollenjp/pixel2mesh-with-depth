@@ -69,7 +69,7 @@ class P2MModelWithTemplateModule(pl.LightningModule):
         """
         return
 
-    def training_step(
+    def training_step(  # type: ignore # [override]
         self,
         batch: P2MWithTemplateBatchData,
         batch_idx: int,
@@ -146,9 +146,9 @@ class P2MModelWithTemplateModule(pl.LightningModule):
         pred_vertices = preds["pred_coord"][-1]  # (batch_size, num_vertices, 3)
         gt_points = batch["points_orig"]  # (batch_size, ) array. torch.Tensor(num_points, 3)
 
-        total_chamfer_distance = 0.0
-        total_f1_tau = 0.0
-        total_f1_2tau = 0.0
+        total_chamfer_distance: torch.Tensor | float = 0.0
+        total_f1_tau: torch.Tensor | float = 0.0
+        total_f1_2tau: torch.Tensor | float = 0.0
 
         for i, (label, pred_v, gt_v) in enumerate(zip(batch["labels"], pred_vertices, gt_points)):
             pred_v = pred_v.unsqueeze(0)  # (1, num_vertices, 3)

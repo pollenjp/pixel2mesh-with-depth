@@ -6,8 +6,8 @@ from logging import getLogger
 from torch.utils.data import DataLoader
 
 # First Party Library
-from p2m.datasets.shapenet_with_template import ShapeNetWithTemplate
-from p2m.datasets.shapenet_with_template import get_shapenet_collate
+from p2m.datasets.shapenet import ShapeNet
+from p2m.datasets.shapenet import get_shapenet_collate
 
 # Local Library
 from .base import DataModule
@@ -16,7 +16,7 @@ logger = getLogger(__name__)
 logger.addHandler(NullHandler())
 
 
-class ShapeNetWithTemplateDataModule(DataModule):
+class ShapeNetDataModule(DataModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -33,7 +33,7 @@ class ShapeNetWithTemplateDataModule(DataModule):
 
     def train_dataloader(self):
 
-        train_dataset = ShapeNetWithTemplate(
+        train_dataset = ShapeNet(
             file_root=self.data_root_path,
             file_list_name=self.options.dataset.subset_train,
             mesh_pos=self.options.dataset.mesh_pos,
@@ -53,7 +53,7 @@ class ShapeNetWithTemplateDataModule(DataModule):
         return train_dataloader
 
     def val_dataloader(self):
-        val_dataset = ShapeNetWithTemplate(
+        val_dataset = ShapeNet(
             file_root=self.data_root_path,
             file_list_name=self.options.dataset.subset_eval,
             mesh_pos=self.options.dataset.mesh_pos,
@@ -74,7 +74,7 @@ class ShapeNetWithTemplateDataModule(DataModule):
     def test_dataloader(self):
 
         raise NotImplementedError("test_dataloader is not implemented!")
-        test_dataset = ShapeNetWithTemplate(
+        test_dataset = ShapeNet(
             file_root=self.data_root_path,
             file_list_name=self.options.dataset.subset_eval,
             mesh_pos=self.options.dataset.mesh_pos,

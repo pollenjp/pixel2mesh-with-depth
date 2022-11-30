@@ -27,6 +27,9 @@ class GProjection(nn.Module):
         """
         given x, return min(threshold, x), in case threshold is not None
         """
+        if self.threshold is None:
+            return x
+
         if self.bound < 0:
             return -self.threshold(-x)
         elif self.bound > 0:

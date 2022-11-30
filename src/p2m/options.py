@@ -287,9 +287,6 @@ def reset_options(options, args, phase="train"):
         if args.options:
             prefix = slugify(args.options) + "_"
         options.version = prefix + datetime.now().strftime("%m%d%H%M%S")  # ignore %Y
-    options.log_dir = os.path.join(options.log_dir, options.name)
-    print("=> creating {}".format(options.log_dir))
-    os.makedirs(options.log_dir, exist_ok=True)
 
     options.checkpoint_dir = os.path.join(options.checkpoint_dir, options.name, options.version)
     print("=> creating {}".format(options.checkpoint_dir))
