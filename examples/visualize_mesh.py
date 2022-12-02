@@ -9,16 +9,12 @@ import numpy as np
 import torch
 from matplotlib.figure import Figure
 from pytorch3d.io import load_objs_as_meshes
-from pytorch3d.renderer import DirectionalLights
 from pytorch3d.renderer import FoVPerspectiveCameras
-from pytorch3d.renderer import Materials
 from pytorch3d.renderer import MeshRasterizer
 from pytorch3d.renderer import MeshRenderer
 from pytorch3d.renderer import PointLights
 from pytorch3d.renderer import RasterizationSettings
 from pytorch3d.renderer import SoftPhongShader
-from pytorch3d.renderer import TexturesUV
-from pytorch3d.renderer import TexturesVertex
 from pytorch3d.renderer import look_at_view_transform
 
 
