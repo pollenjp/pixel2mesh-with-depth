@@ -64,3 +64,15 @@ module = [
     "mpl_toolkits.*",
 ]
 ignore_missing_imports = true
+
+[tool.pyright]
+exclude = [
+    "datasets",
+    "logs",
+    "checkpoints",
+    "experiments",
+    ".wheel",
+    ".nox",
+    ".nox_tmp",
+    "**/__pycache__",
+]
