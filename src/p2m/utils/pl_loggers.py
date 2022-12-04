@@ -29,7 +29,11 @@ def pl_log_scalar(pl_logger: Logger | list[Logger], tag: str, scalar: float | in
 
 
 def pl_log_images(
-    pl_logger: Logger | list[Logger], tag: str, imgs_arr: torch.Tensor | npt.NDArray[np.uint8], global_step: int
+    pl_logger: Logger | list[Logger],
+    tag: str,
+    imgs_arr: torch.Tensor | npt.NDArray[np.uint8],
+    global_step: int,
+    data_formats: str = "NCHW",
 ) -> None:
     pl_loggers: list[Logger]
     if isinstance(pl_logger, Logger):
@@ -43,14 +47,13 @@ def pl_log_images(
             logger.debug(f"imgs_arr.shape = {imgs_arr.shape}")
             # > add_images(tag, img_tensor, global_step=None, walltime=None, dataformats='NCHW')
             # > <https://tensorboardx.readthedocs.io/en/latest/tensorboard.html#tensorboardX.SummaryWriter.add_images>
-            if isinstance(imgs_arr, torch.Tensor):
-                pl_l.experiment.add_images(
-                    tag=tag, img_tensor=imgs_arr, global_step=global_step, walltime=None, dataformats="NCHW"
-                )
-            elif isinstance(imgs_arr, np.ndarray):
-                pl_l.experiment.add_images(
-                    tag=tag, img_tensor=imgs_arr, global_step=global_step, walltime=None, dataformats="NHWC"
-                )
+            pl_l.experiment.add_images(
+                tag=tag,
+                img_tensor=imgs_arr,
+                global_step=global_step,
+                walltime=None,
+                dataformats=data_formats,
+            )
         else:
             error_msg: str = f"{pl_l} dones't support image logging"
             logger.warning(error_msg)

@@ -40,7 +40,7 @@ class P2MModelModule(pl.LightningModule):
         )
         self.p2m_loss = P2MLoss(self.options.loss, self.ellipsoid).cuda()
 
-        self.train_epoch_loss_avg_meters = {
+        self.train_epoch_loss_avg_meters: dict[str, AverageMeter] = {
             "loss": AverageMeter(),
             "loss_chamfer": AverageMeter(),
             "loss_edge": AverageMeter(),
@@ -48,7 +48,7 @@ class P2MModelModule(pl.LightningModule):
             "loss_move": AverageMeter(),
             "loss_normal": AverageMeter(),
         }
-        self.val_epoch_loss_avg_meters = {
+        self.val_epoch_loss_avg_meters: dict[str, AverageMeter] = {
             "loss": AverageMeter(),
             "loss_chamfer": AverageMeter(),
             "loss_edge": AverageMeter(),
@@ -113,7 +113,7 @@ class P2MModelModule(pl.LightningModule):
                 global_step=self.current_epoch,
             )
 
-    def validation_epoch_start(self, *, phase_name: str = "val"):
+    def validation_epoch_start(self, *, phase_name: str = "val") -> None:
 
         return
 

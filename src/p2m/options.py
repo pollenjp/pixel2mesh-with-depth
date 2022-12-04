@@ -1,6 +1,7 @@
 # Standard Library
 import os
 import pprint
+import typing as t
 from argparse import ArgumentParser
 from dataclasses import dataclass
 from datetime import datetime
@@ -127,8 +128,11 @@ class Options:
     test: OptionsTest
     optim: OptionsOptim
 
+    mtl_filepath: str
+    usemtl_name: str
 
-options = edict()
+
+options = t.cast(Options, edict())
 
 options.name = "p2m"
 options.version = None
@@ -142,6 +146,8 @@ options.summary_dir = "summary"
 options.checkpoint_dir = "checkpoints"
 options.checkpoint = None
 options.batch_size = 4
+options.mtl_filepath = "rendering.mtl"
+options.usemtl_name = "Default_OBJ.001"
 
 options.dataset = edict()
 options.dataset.name = "shapenet"
