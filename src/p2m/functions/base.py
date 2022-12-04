@@ -18,11 +18,18 @@ from p2m.datasets.shapenet import ShapeNetImageFolder
 from p2m.datasets.shapenet import get_shapenet_collate
 from p2m.datasets.shapenet_with_template import ShapeNetWithTemplate
 from p2m.functions.saver import CheckpointSaver
+from p2m.options import Options
 
 
 class CheckpointRunner(object):
     def __init__(
-        self, options, logger: Logger, summary_writer: SummaryWriter, dataset=None, training=True, shared_model=None
+        self,
+        options: Options,
+        logger: Logger,
+        summary_writer: SummaryWriter,
+        dataset=None,
+        training=True,
+        shared_model=None,
     ):
         self.options = options
         self.logger = logger
