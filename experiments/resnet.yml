@@ -1,6 +1,5 @@
 # checkpoint: checkpoints/check-resnet/default_resnet_0618050306/770000_000009.pt
 checkpoint: null
-checkpoint_dir: checkpoints
 dataset:
   camera_c:
     - 111.5
@@ -60,19 +59,15 @@ optim:
   name: adam
   sgd_momentum: 0.9
   wd: 1.0e-06
-pin_memory: true
 summary_dir: summary
 batch_size: 32
 test:
   dataset: []
   shuffle: false
-  summary_steps: 50
   weighted_mean: false
 train:
   checkpoint_steps: 10000
   num_epochs: 110
   shuffle: true
-  summary_steps: 50
   test_epochs: 1
-  use_augmentation: true
 version: null

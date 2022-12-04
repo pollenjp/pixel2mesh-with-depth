@@ -1,20 +1,14 @@
 # Standard Library
 import os
-import pprint
 import typing as t
 from argparse import ArgumentParser
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 
 # Third Party Library
 import numpy as np
 import yaml
 from easydict import EasyDict as edict
-from tensorboardX import SummaryWriter
-
-# First Party Library
-from p2m.logger import create_logger
 
 
 @dataclass
@@ -82,16 +76,13 @@ class OptionsLoss:
 @dataclass
 class OptionsTrian:
     num_epochs: int
-    summary_steps: int
     checkpoint_steps: int
     test_epochs: int
-    use_augmentation: bool
     shuffle: bool
 
 
 @dataclass
 class OptionsTest:
-    summary_steps: int
     shuffle: bool
     weighted_mean: bool
 
@@ -113,12 +104,9 @@ class Options:
     version: str | None
     num_workers: int
     num_gpus: int
-    pin_memory: bool
 
     log_dir: str
     log_level: str
-    summary_dir: str
-    checkpoint_dir: str
     checkpoint: str | None  # Checkpointへのpath
     dataset: OptionsDataset
     model: OptionsModel
@@ -138,12 +126,9 @@ options.name = "p2m"
 options.version = None
 options.num_workers = 1
 options.num_gpus = 1
-options.pin_memory = True
 
 options.log_dir = "logs"
 options.log_level = "info"
-options.summary_dir = "summary"
-options.checkpoint_dir = "checkpoints"
 options.checkpoint = None
 options.batch_size = 4
 options.mtl_filepath = "rendering.mtl"
@@ -194,15 +179,12 @@ options.loss.weights.reconst = 0.0
 
 options.train = edict()
 options.train.num_epochs = 50
-options.train.summary_steps = 50
 options.train.checkpoint_steps = 10000
 options.train.test_epochs = 1
-options.train.use_augmentation = True
 options.train.shuffle = True
 
 options.test = edict()
 options.test.dataset = []
-options.test.summary_steps = 50
 options.test.shuffle = False
 options.test.weighted_mean = False
 
@@ -270,46 +252,9 @@ def slugify(filename):
     return os.path.splitext(filename)[0].lower().replace("/", "_").replace(".", "_")
 
 
-def reset_options(options, args, phase="train"):
-    if hasattr(args, "batch_size") and args.batch_size:
-        options.train.batch_size = options.test.batch_size = args.batch_size
-    if hasattr(args, "version") and args.version:
-        options.version = args.version
-    if hasattr(args, "num_epochs") and args.num_epochs:
-        options.train.num_epochs = args.num_epochs
-    if hasattr(args, "checkpoint") and args.checkpoint:
-        options.checkpoint = args.checkpoint
-    if hasattr(args, "folder") and args.folder:
-        options.dataset.predict.folder = args.folder
-    if hasattr(args, "gpus") and args.gpus:
-        options.num_gpus = args.gpus
-    if hasattr(args, "shuffle") and args.shuffle:
-        options.train.shuffle = options.test.shuffle = True
+def reset_options(options, args) -> None:
 
     options.name = args.name
-
-    if options.version is None:
-        prefix = ""
-        if args.options:
-            prefix = slugify(args.options) + "_"
-        options.version = prefix + datetime.now().strftime("%m%d%H%M%S")  # ignore %Y
-
-    options.checkpoint_dir = os.path.join(options.checkpoint_dir, options.name, options.version)
-    print("=> creating {}".format(options.checkpoint_dir))
-    os.makedirs(options.checkpoint_dir, exist_ok=True)
-
-    options.summary_dir = os.path.join(options.summary_dir, options.name, options.version)
-    print("=> creating {}".format(options.summary_dir))
-    os.makedirs(options.summary_dir, exist_ok=True)
-
-    logger = create_logger(options, phase=phase)
-    options_text = pprint.pformat(vars(options))
-    logger.info(options_text)
-
-    print("=> creating summary writer")
-    writer = SummaryWriter(options.summary_dir)
-
-    return logger, writer
 
 
 if __name__ == "__main__":

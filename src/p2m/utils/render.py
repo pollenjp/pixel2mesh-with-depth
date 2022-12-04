@@ -2,7 +2,6 @@
 import contextlib
 import io
 import typing as t
-from dataclasses import dataclass
 from pathlib import Path
 
 # Third Party Library
@@ -10,23 +9,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import torch
-from matplotlib.figure import Figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 from pytorch3d.common.datatypes import Device
-from pytorch3d.io.obj_io import PathManager
-from pytorch3d.io.obj_io import _load_obj
-from pytorch3d.io.obj_io import _open_file
 from pytorch3d.renderer import FoVPerspectiveCameras
 from pytorch3d.renderer import MeshRasterizer
 from pytorch3d.renderer import MeshRenderer
 from pytorch3d.renderer import PointLights
 from pytorch3d.renderer import RasterizationSettings
 from pytorch3d.renderer import SoftPhongShader
-from pytorch3d.renderer import TexturesAtlas
-from pytorch3d.renderer import TexturesUV
 from pytorch3d.renderer import look_at_view_transform
 from pytorch3d.structures.meshes import Meshes
-from pytorch3d.structures.meshes import join_meshes_as_batch
 
 # First Party Library
 from p2m.utils.obj import load_objs_as_meshes
@@ -72,8 +65,15 @@ def plot_point_cloud(vertices: t.Sequence[torch.Tensor] | torch.Tensor, num_cols
     space = 5.0
     fig.subplots_adjust(wspace=space, hspace=space)
     fig.canvas.draw()
+    fig.canvas = t.cast(
+        FigureCanvasAgg,
+        fig.canvas,
+    )
 
-    img: npt.NDArray = np.frombuffer(buffer=fig.canvas.tostring_rgb(), dtype=np.uint8)
+    img: npt.NDArray = np.frombuffer(
+        buffer=t.cast(bytes, fig.canvas.tostring_rgb()),
+        dtype=np.uint8,
+    )
     img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
     plt.close(fig)

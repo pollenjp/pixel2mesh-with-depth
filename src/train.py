@@ -1,5 +1,4 @@
 # Standard Library
-import argparse
 import datetime
 import sys
 import typing as t
@@ -34,26 +33,27 @@ logger = getLogger(__name__)
 logger.addHandler(NullHandler())
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Pixel2Mesh Training Entrypoint")
-    parser.add_argument("--options", help="experiment options file name", required=False, type=str)
+@dataclass
+class Args:
+    name: str
+    option_path: Path
 
-    args, rest = parser.parse_known_args()
-    if args.options is None:
-        print("Running without options file...", file=sys.stderr)
-    else:
-        update_options(args.options)
 
-    # training
-    parser.add_argument("--batch-size", help="batch size", type=int)
-    parser.add_argument("--checkpoint", help="checkpoint file", type=str)
-    parser.add_argument("--num-epochs", help="number of epochs", type=int)
-    parser.add_argument("--version", help="version of task (timestamp by default)", type=str)
+def get_args() -> Args:
+    # Standard Library
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Pixel2Mesh Training")
+
     parser.add_argument("--name", required=True, type=str)
+    parser.add_argument("--option_path", required=True, type=lambda x: Path(x).expanduser().absolute())
 
     args = parser.parse_args()
 
-    return args
+    return Args(
+        name=args.name,
+        option_path=args.option_path,
+    )
 
 
 @unique
@@ -143,8 +143,9 @@ def main():
         }
     )
 
-    args = parse_args()
-    _, _ = reset_options(opt, args)
+    args = get_args()
+
+    update_options(args.option_path)  # this updates options
 
     options = t.cast(Options, opt)
 
@@ -168,8 +169,6 @@ def main():
 
     pl_loggers: list[Logger] = [TensorBoardLogger(save_dir=logger_root_path / "tensorboard", name=options.name)]
 
-    ckpt_path: Path | None = None
-
     trainer: pl.Trainer = pl.Trainer(
         default_root_dir=logger_root_path,
         # gpus=cfg.pytorch_lightning.gpus,
@@ -190,7 +189,7 @@ def main():
             ),
         ],
         auto_select_gpus=True,
-        resume_from_checkpoint=ckpt_path,
+        resume_from_checkpoint=options.checkpoint,
         accelerator="gpu",
         devices=1,
         deterministic="warn",

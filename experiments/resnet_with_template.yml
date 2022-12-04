@@ -1,6 +1,5 @@
 # checkpoint: checkpoints/check-resnet/default_resnet_0618050306/770000_000009.pt
 checkpoint: null
-checkpoint_dir: checkpoints
 dataset:
   camera_c:
     - 111.5
@@ -20,10 +19,10 @@ dataset:
   shapenet:
     num_points: 9000
     resize_with_constant_border: false
-  # subset_eval: test_tf
-  # subset_train: train_tf
-  subset_eval: test_tf_small
-  subset_train: train_tf_small
+  subset_eval: test_tf
+  subset_train: train_tf
+  # subset_eval: test_tf_small
+  # subset_train: train_tf_small
 log_dir: logs
 log_level: info
 loss:
@@ -50,7 +49,7 @@ model:
   z_threshold: 0
 name: p2m
 num_gpus: 1
-num_workers: 8
+num_workers: 16
 optim:
   adam_beta1: 0.9
   # lr: 0.0001
@@ -63,20 +62,16 @@ optim:
   name: adam
   sgd_momentum: 0.9
   wd: 1.0e-06
-pin_memory: true
-summary_dir: summary
 batch_size: 32
+# batch_size: 4
 train:
   checkpoint_steps: 10000
   num_epochs: 200
   shuffle: true
-  summary_steps: 50
   test_epochs: 1
-  use_augmentation: true
 test:
   dataset: []
   shuffle: false
-  summary_steps: 50
   weighted_mean: false
 
 version: null
