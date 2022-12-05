@@ -4,11 +4,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # First Party Library
-import config
+from p2m import config
 
 
 class VGG16TensorflowAlign(nn.Module):
-
     def __init__(self, n_classes_input=3):
         super(VGG16TensorflowAlign, self).__init__()
 
@@ -76,7 +75,6 @@ class VGG16TensorflowAlign(nn.Module):
 
 
 class VGG16P2M(nn.Module):
-
     def __init__(self, n_classes_input=3, pretrained=False):
         super(VGG16P2M, self).__init__()
 
@@ -115,7 +113,7 @@ class VGG16P2M(nn.Module):
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.BatchNorm2d):
@@ -160,7 +158,6 @@ class VGG16P2M(nn.Module):
 
 
 class VGG16Recons(nn.Module):
-
     def __init__(self, input_dim=512, image_channel=3):
         super(VGG16Recons, self).__init__()
 

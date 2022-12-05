@@ -8,7 +8,7 @@ import torch
 from scipy.sparse import coo_matrix
 
 # First Party Library
-import config
+from p2m import config
 
 
 def torch_sparse_tensor(indices, value, size):

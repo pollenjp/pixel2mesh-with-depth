@@ -13,7 +13,7 @@ from skimage import transform
 from torch.utils.data.dataloader import default_collate
 
 # First Party Library
-import config
+from p2m import config
 from p2m.datasets.base_dataset import BaseDataset
 
 

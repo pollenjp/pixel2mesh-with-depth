@@ -11,7 +11,7 @@ from tensorboardX import SummaryWriter
 from torch.utils.data.dataloader import default_collate
 
 # First Party Library
-import config
+from p2m import config
 from p2m.datasets.imagenet import ImageNet
 from p2m.datasets.shapenet import ShapeNet
 from p2m.datasets.shapenet import ShapeNetImageFolder
