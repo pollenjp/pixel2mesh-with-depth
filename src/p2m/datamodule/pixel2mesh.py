@@ -1,6 +1,7 @@
 # Standard Library
 from logging import NullHandler
 from logging import getLogger
+from pathlib import Path
 
 # Third Party Library
 from torch.utils.data import DataLoader
@@ -34,7 +35,7 @@ class ShapeNetDataModule(DataModule):
     def train_dataloader(self):
 
         train_dataset = ShapeNet(
-            file_root=self.data_root_path,
+            file_root=Path(self.options.dataset_root_path),
             file_list_name=self.options.dataset.subset_train,
             mesh_pos=self.options.dataset.mesh_pos,
             normalization=self.options.dataset.normalization,
@@ -54,7 +55,7 @@ class ShapeNetDataModule(DataModule):
 
     def val_dataloader(self):
         val_dataset = ShapeNet(
-            file_root=self.data_root_path,
+            file_root=Path(self.options.dataset_root_path),
             file_list_name=self.options.dataset.subset_eval,
             mesh_pos=self.options.dataset.mesh_pos,
             normalization=self.options.dataset.normalization,
@@ -75,7 +76,7 @@ class ShapeNetDataModule(DataModule):
 
         raise NotImplementedError("test_dataloader is not implemented!")
         test_dataset = ShapeNet(
-            file_root=self.data_root_path,
+            file_root=Path(self.options.dataset_root_path),
             file_list_name=self.options.dataset.subset_eval,
             mesh_pos=self.options.dataset.mesh_pos,
             normalization=self.options.dataset.normalization,

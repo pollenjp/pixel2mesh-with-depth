@@ -1,6 +1,5 @@
 # Standard Library
 import datetime
-import sys
 import typing as t
 from dataclasses import dataclass
 from enum import Enum
@@ -10,7 +9,10 @@ from logging import getLogger
 from pathlib import Path
 
 # Third Party Library
+import hydra
 import pytorch_lightning as pl
+from omegaconf import DictConfig
+from omegaconf import OmegaConf
 from pytorch_lightning import seed_everything
 from pytorch_lightning.callbacks import EarlyStopping
 from pytorch_lightning.callbacks import LearningRateMonitor
@@ -25,35 +27,11 @@ from p2m.datamodule.pixel2mesh_with_template import ShapeNetWithTemplateDataModu
 from p2m.lightningmodule.pixel2mesh import P2MModelModule
 from p2m.lightningmodule.pixel2mesh_with_template import P2MModelWithTemplateModule
 from p2m.options import Options
-from p2m.options import options as opt
-from p2m.options import reset_options
-from p2m.options import update_options
+from p2m.options import assert_mapping_config
+from p2m.utils.logger import reset_logging_config
 
 logger = getLogger(__name__)
 logger.addHandler(NullHandler())
-
-
-@dataclass
-class Args:
-    name: str
-    option_path: Path
-
-
-def get_args() -> Args:
-    # Standard Library
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Pixel2Mesh Training")
-
-    parser.add_argument("--name", required=True, type=str)
-    parser.add_argument("--option_path", required=True, type=lambda x: Path(x).expanduser().absolute())
-
-    args = parser.parse_args()
-
-    return Args(
-        name=args.name,
-        option_path=args.option_path,
-    )
 
 
 @unique
@@ -82,7 +60,6 @@ name2module: dict[ModelName, ModuleSet] = {
 
 def get_module_set(
     model_name: ModelName,
-    dataset_root_path: Path,
     options: Options,
 ) -> tuple[DataModule, pl.LightningModule]:
     match model_name:
@@ -90,7 +67,6 @@ def get_module_set(
             module_set = name2module[model_name]
             return (
                 module_set.data_module(
-                    data_root_path=dataset_root_path,
                     options=options,
                     batch_size=options.batch_size,
                     num_workers=options.num_workers,
@@ -103,67 +79,28 @@ def get_module_set(
             raise ValueError(f"Unknown module name: {model_name}")
 
 
-def main():
-    # Standard Library
-    from logging.config import dictConfig
+this_file_path = Path(__file__)
+project_path = this_file_path.parents[1] / "conf"
 
-    dictConfig(
-        {
-            "version": 1,
-            "formatters": {
-                "console_formatter": {
-                    "format": "".join(
-                        [
-                            "[%(asctime)s]",
-                            "[%(name)20s]",
-                            "[%(levelname)10s]",
-                            "[%(threadName)10s]",
-                            "[%(processName)10s]",
-                            "[%(filename)20s:%(lineno)4d]",
-                            " - %(message)s",
-                        ]
-                    ),
-                }
-            },
-            "handlers": {
-                "console_handler": {
-                    "class": "logging.StreamHandler",
-                    "level": "INFO",
-                    "formatter": "console_formatter",
-                }
-            },
-            "disable_existing_loggers": True,
-            "loggers": {
-                "": {},  # disable the root logger
-                "__main__": {
-                    "level": "DEBUG",
-                    "handlers": ["console_handler"],
-                },
-            },
-        }
-    )
 
-    args = get_args()
+@hydra.main(version_base=None, config_path=f"{project_path}", config_name=f"{this_file_path.stem}")
+def main(cfg: DictConfig) -> None:
+    cfg = t.cast(DictConfig, OmegaConf.merge(OmegaConf.structured(Options), cfg))
+    assert_mapping_config(cfg)
+    options = t.cast(Options, cfg)
 
-    update_options(args.option_path)  # this updates options
+    log_root_path = Path(options.log_root_path)
+    reset_logging_config(log_root_path / "run.log")
 
-    options = t.cast(Options, opt)
-
-    dataset_root_path = Path("datasets") / "data" / "shapenet_with_template"
-    random_seed: int = 0
-    seed_everything(random_seed, workers=True)
+    seed_everything(options.random_seed, workers=True)
 
     dm, model = get_module_set(
-        ModelName[f"{args.name}".upper()],
-        dataset_root_path=dataset_root_path,
+        ModelName[f"{options.name}".upper()],
         options=options,
     )
 
     logger_root_path = (
-        Path(options.log_dir)
-        / "lightning_logs"
-        / f"{options.name}"
-        / f"{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
+        Path(options.log_root_path) / "lightning_logs" / f"{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
     )
     logger.info(f"{logger_root_path=}")
 
@@ -173,7 +110,7 @@ def main():
         default_root_dir=logger_root_path,
         # gpus=cfg.pytorch_lightning.gpus,
         logger=pl_loggers,
-        max_epochs=options.train.num_epochs,
+        max_epochs=options.num_epochs,
         callbacks=[
             ModelCheckpoint(
                 monitor="val_loss",
@@ -189,7 +126,7 @@ def main():
             ),
         ],
         auto_select_gpus=True,
-        resume_from_checkpoint=options.checkpoint,
+        resume_from_checkpoint=options.checkpoint_path,
         accelerator="gpu",
         devices=1,
         deterministic="warn",

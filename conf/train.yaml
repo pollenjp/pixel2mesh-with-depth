@@ -1,5 +1,18 @@
+hydra:
+  run:
+    dir: ${log_root_path}
+  job:
+    chdir: false
+
+defaults:
+  - _self_
+
 # checkpoint: checkpoints/check-resnet/default_resnet_0618050306/770000_000009.pt
-checkpoint: null
+name: p2m_with_template
+log_root_path: logs/${hydra:job.name}/${name}/${now:%Y-%m-%dT%H:%M:%S}
+dataset_root_path: datasets/data/shapenet_with_template
+
+checkpoint_path: null
 dataset:
   camera_c:
     - 111.5
@@ -23,8 +36,6 @@ dataset:
   subset_train: train_tf
   # subset_eval: test_tf_small
   # subset_train: train_tf_small
-log_dir: logs
-log_level: info
 loss:
   weights:
     chamfer:
@@ -47,7 +58,6 @@ model:
   last_hidden_dim: 192
   name: pixel2mesh_with_template
   z_threshold: 0
-name: p2m
 num_gpus: 1
 num_workers: 16
 optim:
@@ -62,16 +72,12 @@ optim:
   name: adam
   sgd_momentum: 0.9
   wd: 1.0e-06
-batch_size: 32
-# batch_size: 4
-train:
-  checkpoint_steps: 10000
-  num_epochs: 200
-  shuffle: true
-  test_epochs: 1
+# batch_size: 32
+batch_size: 4
+num_epochs: 200
 test:
-  dataset: []
-  shuffle: false
   weighted_mean: false
 
-version: null
+mtl_filepath: "rendering.mtl"
+usemtl_name: "Default_OBJ.001"
+random_seed: 0

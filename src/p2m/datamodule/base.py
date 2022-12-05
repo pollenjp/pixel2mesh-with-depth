@@ -25,14 +25,12 @@ def seed_worker(worker_id: int) -> None:
 class DataModule(pl.LightningDataModule):
     def __init__(
         self,
-        data_root_path: Path,
         options: Options,
         batch_size: int,
         num_workers: int = 4,
     ):
         super().__init__()
 
-        self.data_root_path = data_root_path
         self.options = options
         self.batch_size = batch_size
         self.num_workers = num_workers
