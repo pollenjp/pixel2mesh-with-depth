@@ -1,4 +1,5 @@
 # Standard Library
+import json
 from logging import NullHandler
 from logging import getLogger
 from pathlib import Path
@@ -24,6 +25,9 @@ class ShapeNetWithTemplateDataModule(DataModule):
     def prepare_data(self):
         logger.info("prepare_data")
 
+        with open(self.options.dataset.label_json_path, "rt") as fp:
+            self.labels = sorted(list(json.load(fp).keys()))
+
     def prepare_data_per_node(self) -> None:
         logger.info("prepare_data_per_node")
 
@@ -34,15 +38,16 @@ class ShapeNetWithTemplateDataModule(DataModule):
 
     def train_dataloader(self):
 
-        train_dataset = ShapeNetWithTemplate(
-            file_root=Path(self.options.dataset_root_path),
-            file_list_name=self.options.dataset.subset_train,
+        dataset = ShapeNetWithTemplate(
+            dataset_root_dirpath=Path(self.options.dataset.root_path).expanduser(),
+            dataset_filepath_list_txt=Path(self.options.dataset.train_list_filepath).expanduser(),
+            labels=self.labels,
             mesh_pos=self.options.dataset.mesh_pos,
             normalization=self.options.dataset.normalization,
             shapenet_options=self.options.dataset.shapenet,
         )
-        train_dataloader = DataLoader(
-            train_dataset,
+        dataloader = DataLoader(
+            dataset,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             pin_memory=True,
@@ -51,46 +56,48 @@ class ShapeNetWithTemplateDataModule(DataModule):
             collate_fn=get_shapenet_collate(self.options.dataset.shapenet.num_points),
         )
 
-        return train_dataloader
+        return dataloader
 
     def val_dataloader(self):
-        val_dataset = ShapeNetWithTemplate(
-            file_root=Path(self.options.dataset_root_path),
-            file_list_name=self.options.dataset.subset_eval,
+        dataset = ShapeNetWithTemplate(
+            dataset_root_dirpath=Path(self.options.dataset.root_path).expanduser(),
+            dataset_filepath_list_txt=Path(self.options.dataset.val_list_filepath).expanduser(),
+            labels=self.labels,
             mesh_pos=self.options.dataset.mesh_pos,
             normalization=self.options.dataset.normalization,
             shapenet_options=self.options.dataset.shapenet,
         )
 
-        val_dataloader = DataLoader(
-            val_dataset,
+        dataloader = DataLoader(
+            dataset,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             shuffle=False,
             collate_fn=get_shapenet_collate(self.options.dataset.shapenet.num_points),
         )
 
-        return val_dataloader
+        return dataloader
 
     def test_dataloader(self):
 
-        raise NotImplementedError("test_dataloader is not implemented!")
-        test_dataset = ShapeNetWithTemplate(
-            file_root=Path(self.options.dataset_root_path),
-            file_list_name=self.options.dataset.subset_eval,
+        if self.options.dataset.test_list_filepath is None:
+            raise ValueError("test_list_filepath is None")
+
+        dataset = ShapeNetWithTemplate(
+            dataset_root_dirpath=Path(self.options.dataset.root_path).expanduser(),
+            dataset_filepath_list_txt=Path(self.options.dataset.test_list_filepath).expanduser(),
+            labels=self.labels,
             mesh_pos=self.options.dataset.mesh_pos,
             normalization=self.options.dataset.normalization,
             shapenet_options=self.options.dataset.shapenet,
         )
 
-        test_dataloader = DataLoader(
-            test_dataset,
+        dataloader = DataLoader(
+            dataset,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
-            # pin_memory=True,
             shuffle=False,
-            # drop_last=True,
-            # collate_fn=collate_fn,
+            collate_fn=get_shapenet_collate(self.options.dataset.shapenet.num_points),
         )
 
-        return test_dataloader
+        return dataloader

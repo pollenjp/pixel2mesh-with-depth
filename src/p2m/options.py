@@ -16,21 +16,18 @@ class OptionsDatasetShapenet:
 
 
 @dataclass
-class OptionsDatasetPredict:
-    folder: str
-
-
-@dataclass
 class OptionsDataset:
     name: str
     num_classes: int
-    subset_train: str
-    subset_eval: str
+    label_json_path: str
+    root_path: str
+    train_list_filepath: str
+    val_list_filepath: str
+    test_list_filepath: str | None
     camera_f: list[float]
     camera_c: list[float]
     mesh_pos: list[float]
     shapenet: OptionsDatasetShapenet
-    predict: OptionsDatasetPredict
 
     normalization: bool = True
 
@@ -72,10 +69,6 @@ class OptionsLoss:
 
 
 @dataclass
-class OptionsTest:
-    weighted_mean: bool
-
-
 @dataclass
 class OptionsOptim:
     name: str
@@ -89,18 +82,14 @@ class OptionsOptim:
 
 @dataclass
 class Options:
-    name: str
     num_workers: int
-    num_gpus: int
 
     log_root_path: str
-    dataset_root_path: str
     checkpoint_path: str | None  # Checkpointへのpath
     dataset: OptionsDataset
     model: OptionsModel
     loss: OptionsLoss
     batch_size: int
-    test: OptionsTest
     optim: OptionsOptim
     num_epochs: int
     random_seed: int

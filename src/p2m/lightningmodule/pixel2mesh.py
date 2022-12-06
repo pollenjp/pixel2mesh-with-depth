@@ -1,5 +1,6 @@
 # Standard Library
 import typing as t
+from pathlib import Path
 
 # Third Party Library
 import numpy as np
@@ -20,6 +21,7 @@ from p2m.utils.average_meter import AverageMeter
 from p2m.utils.eval import calc_f1_score
 from p2m.utils.mesh import Ellipsoid
 from p2m.utils.render import plot_point_cloud
+from p2m.utils.render import plot_pred_meshes
 
 
 class P2MModelModule(pl.LightningModule):
@@ -188,6 +190,7 @@ class P2MModelModule(pl.LightningModule):
                 tag=f"{phase_name}_imgs",
                 imgs_arr=batch["images_orig"],
                 global_step=self.val_global_step,
+                data_formats="NCHW",
             )
 
             pl_loggers.pl_log_images(
@@ -200,6 +203,31 @@ class P2MModelModule(pl.LightningModule):
                     ]
                 ),
                 global_step=self.val_global_step,
+                data_formats="NHWC",
+            )
+
+            pl_loggers.pl_log_images(
+                pl_logger=self.loggers,
+                tag=f"{phase_name}/pred_meshes",
+                imgs_arr=torch.cat(  # size: (3, batch_size * h, w, c)
+                    [
+                        torch.cat(
+                            [
+                                plot_pred_meshes(
+                                    coords=preds["pred_coord"][i][j],
+                                    faces=self.ellipsoid.faces[i] + 1,  # 0-origin to 1-origin
+                                    mtl_filepath=Path(self.options.mtl_filepath),
+                                    usemtl_name=self.options.usemtl_name,
+                                ).squeeze(0)
+                                for j in range(batch_size)
+                            ],
+                            dim=0,
+                        ).unsqueeze(0)
+                        for i in range(3)
+                    ]
+                ),
+                global_step=self.val_global_step,
+                data_formats="NHWC",
             )
 
         return
@@ -237,7 +265,7 @@ class P2MModelModule(pl.LightningModule):
         self.validation_step(batch=batch, batch_idx=batch_idx, phase_name=phase_name)
         return
 
-    def test_eopch_end(self, test_step_outputs, *, phase_name: str = "test"):
+    def test_epoch_end(self, test_step_outputs, *, phase_name: str = "test"):
         self.validation_epoch_end(validation_step_outputs=test_step_outputs, phase_name="test")
         return
 
@@ -271,8 +299,8 @@ class P2MModelModule(pl.LightningModule):
         optimizers: list[torch.optim.optimizer.Optimizer] = [
             self.solver,
         ]
-        lr_scheculers: list = [
+        lr_schedulers: list = [
             self.lr_scheduler,
         ]
 
-        return optimizers, lr_scheculers
+        return optimizers, lr_schedulers

@@ -95,16 +95,14 @@ def main(cfg: DictConfig) -> None:
     seed_everything(options.random_seed, workers=True)
 
     dm, model = get_module_set(
-        ModelName[f"{options.name}".upper()],
+        ModelName[f"{options.model.name}".upper()],
         options=options,
     )
 
-    logger_root_path = (
-        Path(options.log_root_path) / "lightning_logs" / f"{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
-    )
+    logger_root_path = Path(options.log_root_path) / "lightning_logs"
     logger.info(f"{logger_root_path=}")
 
-    pl_loggers: list[Logger] = [TensorBoardLogger(save_dir=logger_root_path / "tensorboard", name=options.name)]
+    pl_loggers: list[Logger] = [TensorBoardLogger(save_dir=logger_root_path / "tensorboard", name=options.model.name)]
 
     trainer: pl.Trainer = pl.Trainer(
         default_root_dir=logger_root_path,
