@@ -9,5 +9,4 @@ lr_step:
   - 30
   - 70
   - 90
-sgd_momentum: 0.9
 weight_decay: 1.0e-06
