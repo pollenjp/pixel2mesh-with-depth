@@ -1,4 +1,4 @@
-name: sgd
+name: SGD
 params:
   - 0.9
 # lr: 0.0001
