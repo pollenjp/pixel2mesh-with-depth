@@ -2,6 +2,8 @@
 from collections.abc import MutableMapping
 from collections.abc import MutableSequence
 from dataclasses import dataclass
+from enum import Enum
+from enum import unique
 from logging import NullHandler
 from logging import getLogger
 
@@ -68,16 +70,26 @@ class OptionsLoss:
     weights: OptionsLossWeights
 
 
-@dataclass
+@unique
+class OptimName(Enum):
+    ADAM = 0
+    SGD = 1
+
+
 @dataclass
 class OptionsOptim:
-    name: str
-    adam_beta1: float
-    sgd_momentum: float
+    name: OptimName
     lr: float
-    wd: float
     lr_step: list[int]  # 2 elements
     lr_factor: float
+    weight_decay: float
+
+    # adam:
+    #   - Adam beta1
+    #   - Adam beta2
+    # sgd:
+    #   - SGD momentum
+    params: list[int | float]
 
 
 @dataclass
@@ -94,6 +106,7 @@ class Options:
     num_epochs: int
     random_seed: int
 
+    batch_size_for_plot: int
     mtl_filepath: str
     usemtl_name: str
 

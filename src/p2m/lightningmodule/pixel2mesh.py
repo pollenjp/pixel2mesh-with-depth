@@ -15,6 +15,7 @@ from p2m.models.losses.p2m import P2MLoss
 from p2m.models.losses.p2m import P2MLossForwardReturnSecondDict
 from p2m.models.p2m import P2MModel
 from p2m.models.p2m import P2MModelForwardReturn
+from p2m.options import OptimName
 from p2m.options import Options
 from p2m.utils import pl_loggers
 from p2m.utils.average_meter import AverageMeter
@@ -103,8 +104,12 @@ class P2MModelModule(pl.LightningModule):
             avg_meter.update(summary[loss_name])
 
         if batch_idx == 0:
-            # TODO:
-            pass
+            self.custom_batch_log(
+                phase_name=phase_name,
+                batch=batch,
+                preds=preds,
+                step=self.current_epoch,
+            )
 
     def training_epoch_end(self, training_step_outputs, *, phase_name: str = "train") -> None:
         for loss_name, avg_meter in self.train_epoch_loss_avg_meters.items():
@@ -185,49 +190,11 @@ class P2MModelModule(pl.LightningModule):
         self.log(name=f"{phase_name}_eval_f1_2tau", value=total_f1_2tau / batch_size, batch_size=batch_size)
 
         if batch_idx == 0:
-            pl_loggers.pl_log_images(
-                pl_logger=self.loggers,
-                tag=f"{phase_name}_imgs",
-                imgs_arr=batch["images_orig"],
-                global_step=self.val_global_step,
-                data_formats="NCHW",
-            )
-
-            pl_loggers.pl_log_images(
-                pl_logger=self.loggers,
-                tag=f"{phase_name}_vertices/gt_pred",
-                imgs_arr=np.array(
-                    [
-                        plot_point_cloud(vertices=gt_points, num_cols=1),
-                        plot_point_cloud(vertices=pred_vertices, num_cols=1),
-                    ]
-                ),
-                global_step=self.val_global_step,
-                data_formats="NHWC",
-            )
-
-            pl_loggers.pl_log_images(
-                pl_logger=self.loggers,
-                tag=f"{phase_name}/pred_meshes",
-                imgs_arr=torch.cat(  # size: (3, batch_size * h, w, c)
-                    [
-                        torch.cat(
-                            [
-                                plot_pred_meshes(
-                                    coords=preds["pred_coord"][i][j],
-                                    faces=self.ellipsoid.faces[i] + 1,  # 0-origin to 1-origin
-                                    mtl_filepath=Path(self.options.mtl_filepath),
-                                    usemtl_name=self.options.usemtl_name,
-                                ).squeeze(0)
-                                for j in range(batch_size)
-                            ],
-                            dim=0,
-                        ).unsqueeze(0)
-                        for i in range(3)
-                    ]
-                ),
-                global_step=self.val_global_step,
-                data_formats="NHWC",
+            self.custom_batch_log(
+                phase_name=phase_name,
+                batch=batch,
+                preds=preds,
+                step=self.current_epoch,
             )
 
         return
@@ -273,22 +240,23 @@ class P2MModelModule(pl.LightningModule):
 
         # Set up solver
         self.solver: torch.optim.optimizer.Optimizer
-        if self.options.optim.name == "adam":
-            self.solver = torch.optim.Adam(
-                params=list(self.model.parameters()),
-                lr=self.options.optim.lr,
-                betas=(self.options.optim.adam_beta1, 0.999),
-                weight_decay=self.options.optim.wd,
-            )
-        elif self.options.optim.name == "sgd":
-            self.solver = torch.optim.SGD(
-                params=list(self.model.parameters()),
-                lr=self.options.optim.lr,
-                momentum=self.options.optim.sgd_momentum,
-                weight_decay=self.options.optim.wd,
-            )
-        else:
-            raise NotImplementedError(f"Your optimizer is not found: {self.options.optim.name}")
+        match self.options.optim.name:
+            case OptimName.ADAM:
+                self.solver = torch.optim.Adam(
+                    params=list(self.model.parameters()),
+                    lr=self.options.optim.lr,
+                    betas=(self.options.optim.params[0], self.options.optim.params[1]),
+                    weight_decay=self.options.optim.weight_decay,
+                )
+            case OptimName.SGD:
+                self.solver = torch.optim.SGD(
+                    params=list(self.model.parameters()),
+                    lr=self.options.optim.lr,
+                    momentum=self.options.optim.params[0],
+                    weight_decay=self.options.optim.weight_decay,
+                )
+            case _:
+                raise NotImplementedError(f"Your optimizer is not found: {self.options.optim.name}")
 
         self.lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
             self.solver,
@@ -304,3 +272,57 @@ class P2MModelModule(pl.LightningModule):
         ]
 
         return optimizers, lr_schedulers
+
+    def custom_batch_log(
+        self,
+        phase_name: str,
+        batch: P2MBatchData,
+        preds: P2MModelForwardReturn,
+        step: int,
+    ) -> None:
+        batch_size = self.options.batch_size_for_plot
+
+        pl_loggers.pl_log_images(
+            pl_logger=self.loggers,
+            tag=f"{phase_name}_imgs",
+            imgs_arr=batch["images_orig"][:batch_size],
+            global_step=step,
+            data_formats="NCHW",
+        )
+
+        pl_loggers.pl_log_images(
+            pl_logger=self.loggers,
+            tag=f"{phase_name}_vertices/gt_pred",
+            imgs_arr=np.array(
+                [
+                    plot_point_cloud(vertices=batch["points_orig"][:batch_size], num_cols=1),
+                    plot_point_cloud(vertices=preds["pred_coord"][-1][:batch_size], num_cols=1),
+                ]
+            ),
+            global_step=step,
+            data_formats="NHWC",
+        )
+
+        pl_loggers.pl_log_images(
+            pl_logger=self.loggers,
+            tag=f"{phase_name}/pred_meshes",
+            imgs_arr=torch.cat(  # size: (3, batch_size * h, w, c)
+                [
+                    torch.cat(
+                        [
+                            plot_pred_meshes(
+                                coords=preds["pred_coord"][i][j],
+                                faces=self.ellipsoid.faces[i] + 1,  # 0-origin to 1-origin
+                                mtl_filepath=Path(self.options.mtl_filepath),
+                                usemtl_name=self.options.usemtl_name,
+                            ).squeeze(0)
+                            for j in range(batch_size)
+                        ],
+                        dim=0,
+                    ).unsqueeze(0)
+                    for i in range(3)
+                ]
+            ),
+            global_step=step,
+            data_formats="NHWC",
+        )

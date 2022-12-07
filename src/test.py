@@ -10,9 +10,6 @@ import pytorch_lightning as pl
 from omegaconf import DictConfig
 from omegaconf import OmegaConf
 from pytorch_lightning import seed_everything
-from pytorch_lightning.callbacks import EarlyStopping
-from pytorch_lightning.callbacks import LearningRateMonitor
-from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import Logger
 from pytorch_lightning.loggers import TensorBoardLogger
 
@@ -52,24 +49,12 @@ def main(cfg: DictConfig) -> None:
 
     pl_loggers: list[Logger] = [TensorBoardLogger(save_dir=logger_root_path / "tensorboard", name=options.model.name)]
 
+    logger.info(f"checkpoint: {options.checkpoint_path}")
     trainer: pl.Trainer = pl.Trainer(
         default_root_dir=logger_root_path,
         logger=pl_loggers,
         max_epochs=options.num_epochs,
-        callbacks=[
-            ModelCheckpoint(
-                monitor="val_loss",
-                save_last=True,
-                save_top_k=5,
-                dirpath=logger_root_path / "model-checkpoint",
-                filename="{val_loss:.8f}-{epoch}-{step}",
-            ),
-            LearningRateMonitor(logging_interval="epoch"),
-            EarlyStopping(
-                monitor="val_loss",
-                patience=20,
-            ),
-        ],
+        callbacks=None,
         auto_select_gpus=True,
         resume_from_checkpoint=options.checkpoint_path,
         accelerator="gpu",
@@ -78,8 +63,8 @@ def main(cfg: DictConfig) -> None:
     )
 
     # fit
-    logger.info("Begin fit!")
-    trainer.fit(model=model, datamodule=dm)
+    logger.info("Begin test!")
+    trainer.test(model=model, datamodule=dm)
 
 
 if __name__ == "__main__":
