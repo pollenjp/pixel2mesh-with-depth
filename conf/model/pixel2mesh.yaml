@@ -1,4 +1,4 @@
-name: p2m
+name: P2M
 align_with_tensorflow: false
 backbone: resnet50
 coord_dim: 3

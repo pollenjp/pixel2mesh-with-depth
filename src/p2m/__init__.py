@@ -1,8 +1,6 @@
 # Standard Library
 import typing as t
 from dataclasses import dataclass
-from enum import Enum
-from enum import unique
 
 # Third Party Library
 import pytorch_lightning as pl
@@ -13,13 +11,8 @@ from p2m.datamodule.pixel2mesh import ShapeNetDataModule
 from p2m.datamodule.pixel2mesh_with_template import ShapeNetWithTemplateDataModule
 from p2m.lightningmodule.pixel2mesh import P2MModelModule
 from p2m.lightningmodule.pixel2mesh_with_template import P2MModelWithTemplateModule
+from p2m.options import ModelName
 from p2m.options import Options
-
-
-@unique
-class ModelName(Enum):
-    P2M = "p2m"
-    P2M_WITH_TEMPLATE = "p2m_with_template"
 
 
 @dataclass

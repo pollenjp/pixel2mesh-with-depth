@@ -34,9 +34,15 @@ class OptionsDataset:
     normalization: bool = True
 
 
+@unique
+class ModelName(Enum):
+    P2M = 0
+    P2M_WITH_TEMPLATE = 1
+
+
 @dataclass
 class OptionsModel:
-    name: str
+    name: ModelName
     hidden_dim: int
     last_hidden_dim: int
     coord_dim: int
