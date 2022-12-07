@@ -1,6 +1,6 @@
 name: P2M_WITH_TEMPLATE
 align_with_tensorflow: false
-backbone: resnet50
+backbone: RESNET50
 coord_dim: 3
 gconv_activation: true
 hidden_dim: 192

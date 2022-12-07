@@ -40,13 +40,19 @@ class ModelName(Enum):
     P2M_WITH_TEMPLATE = 1
 
 
+@unique
+class ModelBackbone(Enum):
+    RESNET50 = 0
+    VGG16 = 1
+
+
 @dataclass
 class OptionsModel:
     name: ModelName
     hidden_dim: int
     last_hidden_dim: int
     coord_dim: int
-    backbone: str
+    backbone: ModelBackbone
     gconv_activation: bool
 
     # provide a boundary for z, so that z will never be equal to 0, on denominator
