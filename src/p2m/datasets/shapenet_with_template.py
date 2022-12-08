@@ -1,5 +1,4 @@
 # Standard Library
-import json
 import pickle
 import typing as t
 from pathlib import Path

@@ -1,7 +1,8 @@
-
 # Third Party Library
 import torch
 import torch.nn as nn
+
+# First Party Library
 from p2m.utils.tensor import dot
 
 
@@ -18,13 +19,14 @@ class GConv(nn.Module):
 
         self.adj_mat = nn.Parameter(adj_mat, requires_grad=False)
         self.weight = nn.Parameter(torch.zeros((in_features, out_features), dtype=torch.float))
-        # Following https://github.com/Tong-ZHAO/Pixel2Mesh-Pytorch/blob/a0ae88c4a42eef6f8f253417b97df978db842708/model/gcn_layers.py#L45
+        # Following
+        # <https://github.com/Tong-ZHAO/Pixel2Mesh-Pytorch/blob/a0ae88c4a42eef6f8f253417b97df978db842708/model/gcn_layers.py#L45>
         # This seems to be different from the original implementation of P2M
         self.loop_weight = nn.Parameter(torch.zeros((in_features, out_features), dtype=torch.float))
         if bias:
             self.bias = nn.Parameter(torch.zeros((out_features,), dtype=torch.float))
         else:
-            self.register_parameter('bias', None)
+            self.register_parameter("bias", None)
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -42,6 +44,4 @@ class GConv(nn.Module):
         return ret
 
     def __repr__(self):
-        return self.__class__.__name__ + ' (' \
-               + str(self.in_features) + ' -> ' \
-               + str(self.out_features) + ')'
+        return self.__class__.__name__ + " (" + str(self.in_features) + " -> " + str(self.out_features) + ")"
