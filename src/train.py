@@ -50,7 +50,9 @@ def main(cfg: DictConfig) -> None:
     logger_root_path = Path(options.log_root_path) / "lightning_logs"
     logger.info(f"{logger_root_path=}")
 
-    pl_loggers: list[Logger] = [TensorBoardLogger(save_dir=logger_root_path / "tensorboard", name=options.model.name)]
+    pl_loggers: list[Logger] = [
+        TensorBoardLogger(save_dir=logger_root_path / "tensorboard", name=options.model.name.name)
+    ]
 
     trainer: pl.Trainer = pl.Trainer(
         default_root_dir=logger_root_path,
