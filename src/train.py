@@ -43,7 +43,7 @@ def main(cfg: DictConfig) -> None:
     seed_everything(options.random_seed, workers=True)
 
     dm, model = get_module_set(
-        ModelName[f"{options.model.name}".upper()],
+        options.model.name,
         options=options,
     )
 
@@ -73,7 +73,6 @@ def main(cfg: DictConfig) -> None:
             ),
         ],
         auto_select_gpus=True,
-        resume_from_checkpoint=options.checkpoint_path,
         accelerator="gpu",
         devices=1,
         deterministic="warn",
@@ -81,7 +80,8 @@ def main(cfg: DictConfig) -> None:
 
     # fit
     logger.info("Begin fit!")
-    trainer.fit(model=model, datamodule=dm)
+    logger.info(f"checkpoint: {options.checkpoint_path}")
+    trainer.fit(model=model, datamodule=dm, ckpt_path=options.checkpoint_path)
 
 
 if __name__ == "__main__":

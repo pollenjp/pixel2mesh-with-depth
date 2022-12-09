@@ -40,23 +40,23 @@ def main(cfg: DictConfig) -> None:
     seed_everything(options.random_seed, workers=True)
 
     dm, model = get_module_set(
-        ModelName[f"{options.model.name}".upper()],
+        options.model.name,
         options=options,
     )
 
     logger_root_path = Path(options.log_root_path) / "lightning_logs"
     logger.info(f"{logger_root_path=}")
 
-    pl_loggers: list[Logger] = [TensorBoardLogger(save_dir=logger_root_path / "tensorboard", name=options.model.name)]
+    pl_loggers: list[Logger] = [
+        TensorBoardLogger(save_dir=logger_root_path / "tensorboard", name=options.model.name.name)
+    ]
 
-    logger.info(f"checkpoint: {options.checkpoint_path}")
     trainer: pl.Trainer = pl.Trainer(
         default_root_dir=logger_root_path,
         logger=pl_loggers,
         max_epochs=options.num_epochs,
         callbacks=None,
         auto_select_gpus=True,
-        resume_from_checkpoint=options.checkpoint_path,
         accelerator="gpu",
         devices=1,
         deterministic="warn",
@@ -64,7 +64,8 @@ def main(cfg: DictConfig) -> None:
 
     # fit
     logger.info("Begin test!")
-    trainer.test(model=model, datamodule=dm)
+    logger.info(f"checkpoint: {options.checkpoint_path}")
+    trainer.test(model=model, datamodule=dm, ckpt_path=options.checkpoint_path)
 
 
 if __name__ == "__main__":

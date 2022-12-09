@@ -11,7 +11,7 @@ defaults:
   - _self_
 
 # checkpoint: checkpoints/check-resnet/default_resnet_0618050306/770000_000009.pt
-log_root_path: logs/${hydra:job.name}/${model.name}/${dataset.name}/${now:%Y-%m-%dT%H:%M:%S}
+log_root_path: logs/${hydra:job.name}/${model.name}/${dataset.name}/${now:%Y-%m-%dT%H%M%S}
 
 checkpoint_path: null
 loss:
