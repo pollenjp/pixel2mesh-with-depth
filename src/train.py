@@ -20,6 +20,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from p2m import get_module_set
 from p2m.options import Options
 from p2m.options import assert_mapping_config
+from p2m.utils.bbo import ScoreSender
 from p2m.utils.logger import reset_logging_config
 
 logger = getLogger(__name__)
@@ -54,24 +55,26 @@ def main(cfg: DictConfig) -> None:
         TensorBoardLogger(save_dir=logger_root_path / "tensorboard", name=options.model.name.name)
     ]
 
+    callbacks = {
+        "model_checkpoint": ModelCheckpoint(
+            monitor="val_loss",
+            save_last=True,
+            save_top_k=5,
+            dirpath=logger_root_path / "model-checkpoint",
+            filename="{val_loss:.8f}-{epoch}-{step}",
+        ),
+        "learning_rate_monitor": LearningRateMonitor(logging_interval="epoch"),
+        "early_stopping": EarlyStopping(
+            monitor="val_loss",
+            patience=20,
+        ),
+    }
+
     trainer: pl.Trainer = pl.Trainer(
         default_root_dir=logger_root_path,
         logger=pl_loggers,
         max_epochs=options.num_epochs,
-        callbacks=[
-            ModelCheckpoint(
-                monitor="val_loss",
-                save_last=True,
-                save_top_k=5,
-                dirpath=logger_root_path / "model-checkpoint",
-                filename="{val_loss:.8f}-{epoch}-{step}",
-            ),
-            LearningRateMonitor(logging_interval="epoch"),
-            EarlyStopping(
-                monitor="val_loss",
-                patience=20,
-            ),
-        ],
+        callbacks=[c for c in callbacks.values()],
         auto_select_gpus=True,
         accelerator="gpu",
         devices=1,
@@ -82,6 +85,9 @@ def main(cfg: DictConfig) -> None:
     logger.info("Begin fit!")
     logger.info(f"checkpoint: {options.checkpoint_path}")
     trainer.fit(model=model, datamodule=dm, ckpt_path=options.checkpoint_path)
+
+    # save score for BBO
+    ScoreSender.save_score(log_root_path, score=callbacks["early_stopping"].best_score)
 
 
 if __name__ == "__main__":
