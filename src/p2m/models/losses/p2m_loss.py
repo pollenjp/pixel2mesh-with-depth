@@ -144,11 +144,6 @@ class P2MLoss(nn.Module):
             image_loss = self.image_loss(gt_images, outputs["reconst"])
 
         for i in range(3):
-            # dist1, dist2, idx1, idx2 = self.chamfer_dist(gt_coord, pred_coord[i])
-            # chamfer_loss += self.options.weights.chamfer[i] * (
-            #     torch.mean(dist1) + self.options.weights.chamfer_opposite * torch.mean(dist2)
-            # )
-            # normal_loss += self.normal_loss(gt_normal, idx2, pred_coord[i], self.edges[i])
             knn = knn_points(pred_coord[i], gt_coord, K=1)
 
             chamfer_loss += self.options.weights.chamfer[i] * t.cast(
@@ -163,14 +158,14 @@ class P2MLoss(nn.Module):
 
         loss = (
             chamfer_loss
-            + image_loss * self.options.weights.reconst
+            + self.options.weights.reconst * image_loss
             + self.options.weights.laplace * lap_loss
             + self.options.weights.move * move_loss
             + self.options.weights.edge * edge_loss
             + self.options.weights.normal * normal_loss
         )
 
-        loss = loss * self.options.weights.constant
+        loss *= self.options.weights.constant
 
         return loss, {
             "loss": loss,

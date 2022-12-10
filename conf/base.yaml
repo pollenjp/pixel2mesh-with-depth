@@ -5,28 +5,16 @@ hydra:
     chdir: false
 
 defaults:
+  - _self_
   - dataset: resnet_with_template
   - model: pixel2mesh
   - optim: adam
-  - _self_
+  - loss: default
 
 # checkpoint: checkpoints/check-resnet/default_resnet_0618050306/770000_000009.pt
 log_root_path: logs/${hydra:job.name}/${model.name}/${dataset.name}/${now:%Y-%m-%dT%H%M%S}
 
 checkpoint_path: null
-loss:
-  weights:
-    chamfer:
-      - 1.0
-      - 1.0
-      - 1.0
-    chamfer_opposite: 0.55
-    constant: 1.0
-    edge: 0.1
-    laplace: 0.5
-    move: 0.033
-    normal: 0.00016
-    reconst: 0.0
 num_workers: 4
 batch_size: 4
 num_epochs: 200

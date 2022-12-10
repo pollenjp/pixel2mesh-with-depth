@@ -28,6 +28,8 @@ class ShapeNetWithTemplateDataModule(DataModule):
         with open(self.options.dataset.label_json_path, "rt") as fp:
             self.labels = sorted(list(json.load(fp).keys()))
 
+        logger.info(f"labels: {[f'{i}: {label}' for i, label in enumerate(self.labels)]}")
+
     def prepare_data_per_node(self) -> None:
         logger.info("prepare_data_per_node")
 

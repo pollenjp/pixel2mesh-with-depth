@@ -129,8 +129,6 @@ def assert_sequence_config(cfg: MutableSequence) -> None:
             assert_mapping_config(val)
         elif isinstance(val, MutableSequence):
             assert_sequence_config(val)
-        else:
-            print(f"{val}")
 
 
 def assert_mapping_config(cfg: MutableMapping) -> None:

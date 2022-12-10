@@ -110,6 +110,6 @@ class P2MModelWithTemplate(nn.Module):
 
 
 class P2MModelWithTemplateForwardReturn(t.TypedDict):
-    pred_coord: list[torch.Tensor]  # (3,) arary. Each element is (batch_size, num_points, 3)
+    pred_coord: list[torch.Tensor]  # (3,) array. Each element is (batch_size, num_points, 3)
     pred_coord_before_deform: list[torch.Tensor]  # [init_pts, x1_up, x2_up]
     reconst: torch.Tensor  # TODO: ???

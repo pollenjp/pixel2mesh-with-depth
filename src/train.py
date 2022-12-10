@@ -17,7 +17,6 @@ from pytorch_lightning.loggers import Logger
 from pytorch_lightning.loggers import TensorBoardLogger
 
 # First Party Library
-from p2m import ModelName
 from p2m import get_module_set
 from p2m.options import Options
 from p2m.options import assert_mapping_config
@@ -27,12 +26,13 @@ logger = getLogger(__name__)
 logger.addHandler(NullHandler())
 
 
-this_file_path = Path(__file__)
-project_path = this_file_path.parents[1] / "conf"
-
-
-@hydra.main(version_base=None, config_path=f"{project_path}", config_name=f"{this_file_path.stem}")
+@hydra.main(
+    version_base=None,
+    config_path=f"{Path(__file__).parents[1] / 'conf'}",
+    config_name="base",
+)
 def main(cfg: DictConfig) -> None:
+    OmegaConf.resolve(cfg)
     cfg = t.cast(DictConfig, OmegaConf.merge(OmegaConf.structured(Options), cfg))
     assert_mapping_config(cfg)
     options = t.cast(Options, cfg)

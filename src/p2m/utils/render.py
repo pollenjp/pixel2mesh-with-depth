@@ -81,13 +81,13 @@ def plot_point_cloud(vertices: t.Sequence[torch.Tensor] | torch.Tensor, num_cols
     return img
 
 
-def write_obj_info_context(
+def write_obj_info(
+    f: io.TextIOBase,
     coords: torch.Tensor | list[list[float]],
     faces: torch.Tensor,
     mtl_filename: str,
     usemtl_name: str,
-) -> t.ContextManager[io.StringIO]:
-    f = io.StringIO("")
+) -> None:
     f.write(f"mtllib {mtl_filename}\n")
 
     for coord in coords:
@@ -98,6 +98,15 @@ def write_obj_info_context(
     for face in faces:
         f.write(f"f {face[0]} {face[1]} {face[2]}\n")
 
+
+def write_obj_info_context(
+    coords: torch.Tensor | list[list[float]],
+    faces: torch.Tensor,
+    mtl_filename: str,
+    usemtl_name: str,
+) -> t.ContextManager[io.StringIO]:
+    f = io.StringIO("")
+    write_obj_info(f=f, coords=coords, faces=faces, mtl_filename=mtl_filename, usemtl_name=usemtl_name)
     f.seek(0)
 
     return contextlib.closing(f)
