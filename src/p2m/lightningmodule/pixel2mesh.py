@@ -242,7 +242,10 @@ class P2MModelModule(pl.LightningModule):
 
         preds = self.custom_step(batch=batch, batch_idx=batch_idx, phase_name=phase_name)
 
-        # TODO: save predicted data
+        if batch_idx > 0:
+            return
+
+        # save predicted data
         output_dir_path = Path(self.options.log_root_path) / "output"
         output_dir_path.mkdir(parents=True, exist_ok=True)
         for i_elem in range(len(batch["images"])):
@@ -250,7 +253,7 @@ class P2MModelModule(pl.LightningModule):
             f = Path(batch["filename"][i_elem])
             label_id = f.parents[2].name
             instance_id = f.parents[1].name
-            d = output_dir_path / label_id / instance_id
+            d = output_dir_path / label_id / instance_id / f.stem
             d.mkdir(parents=True, exist_ok=True)
 
             name: str
