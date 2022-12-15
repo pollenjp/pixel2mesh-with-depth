@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # First Party Library
-from p2m.datasets.shapenet import P2MDataUnit
+from p2m.datasets.shapenet import P2MBatchData
 from p2m.models.backbones import get_backbone
 from p2m.models.layers.gbottleneck import GBottleneck
 from p2m.models.layers.gconv import GConv
@@ -65,7 +65,7 @@ class P2MModel(nn.Module):
 
         self.gconv = GConv(in_features=self.last_hidden_dim, out_features=self.coord_dim, adj_mat=ellipsoid.adj_mat[2])
 
-    def forward(self, batch: P2MDataUnit):
+    def forward(self, batch: P2MBatchData):
         img = batch["images"]
         batch_size = img.size(0)
         img_feats = self.nn_encoder(img)
