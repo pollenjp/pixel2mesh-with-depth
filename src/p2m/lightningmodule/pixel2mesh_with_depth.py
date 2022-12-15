@@ -4,17 +4,19 @@ from pathlib import Path
 
 # Third Party Library
 import numpy as np
+import PIL.Image
 import pytorch_lightning as pl
 import torch
+import torchvision
 from pytorch3d.loss.chamfer import chamfer_distance
 from pytorch3d.loss.chamfer import knn_points
 
 # First Party Library
-from p2m.datasets.shapenet import P2MBatchData
+from p2m.datasets.shapenet_with_depth import P2MWithDepthBatchData
 from p2m.models.losses.p2m_loss import P2MLoss
 from p2m.models.losses.p2m_loss import P2MLossForwardReturnSecondDict
-from p2m.models.p2m import P2MModel
-from p2m.models.p2m import P2MModelForwardReturn
+from p2m.models.p2m_with_depth import P2MModelWithDepth
+from p2m.models.p2m_with_depth import P2MModelWithDepthForwardReturn
 from p2m.options import OptimName
 from p2m.options import Options
 from p2m.utils import pl_loggers
@@ -23,9 +25,10 @@ from p2m.utils.eval import calc_f1_score
 from p2m.utils.mesh import Ellipsoid
 from p2m.utils.render import plot_point_cloud
 from p2m.utils.render import plot_pred_meshes
+from p2m.utils.render import write_obj_info
 
 
-class P2MModelModule(pl.LightningModule):
+class P2MModelWithDepthModule(pl.LightningModule):
     def __init__(
         self,
         options: Options,
@@ -34,7 +37,7 @@ class P2MModelModule(pl.LightningModule):
         super().__init__(**kwargs)
         self.options = options
         self.ellipsoid = Ellipsoid(self.options.dataset.mesh_pos)
-        self.model = P2MModel(
+        self.model = P2MModelWithDepth(
             self.options.model,
             self.ellipsoid,
             self.options.dataset.camera_f,
@@ -62,8 +65,8 @@ class P2MModelModule(pl.LightningModule):
 
         self.val_global_step: int = 0
 
-    def forward(self, batch: P2MBatchData) -> P2MModelForwardReturn:
-        x: P2MModelForwardReturn = self.model(batch)
+    def forward(self, batch: P2MWithDepthBatchData) -> P2MModelWithDepthForwardReturn:
+        x: P2MModelWithDepthForwardReturn = self.model(batch)
         return x
 
     def training_epoch_start(self, *, phase_name: str = "train") -> None:
@@ -74,7 +77,7 @@ class P2MModelModule(pl.LightningModule):
 
     def training_step(  # type: ignore  # override
         self,
-        batch: P2MBatchData,
+        batch: P2MWithDepthBatchData,
         batch_idx: int,
         # optimizer_idx: int,
         *,
@@ -85,7 +88,7 @@ class P2MModelModule(pl.LightningModule):
         if batch_idx == 0:
             self.training_epoch_start(phase_name=phase_name)
 
-        preds: P2MModelForwardReturn = self(batch)
+        preds: P2MModelWithDepthForwardReturn = self(batch)
         summary: P2MLossForwardReturnSecondDict
         loss, summary = self.p2m_loss(preds, batch)
 
@@ -124,21 +127,19 @@ class P2MModelModule(pl.LightningModule):
 
         return
 
-    def validation_step(
+    def custom_step(
         self,
-        batch: P2MBatchData,
-        batch_idx: int,
         *,
-        phase_name: str = "val",
-    ):
-        self.val_global_step += 1
-
+        batch: P2MWithDepthBatchData,
+        batch_idx: int,
+        phase_name: str,
+    ) -> P2MModelWithDepthForwardReturn:
         batch_size: int = len(batch["images"])
 
         if batch_idx == 0:
             self.validation_epoch_start(phase_name=phase_name)
 
-        preds: P2MModelForwardReturn = self(batch)
+        preds: P2MModelWithDepthForwardReturn = self(batch)
         summary: P2MLossForwardReturnSecondDict
         _, summary = self.p2m_loss(preds, batch)
 
@@ -189,6 +190,18 @@ class P2MModelModule(pl.LightningModule):
         self.log(name=f"{phase_name}_eval_f1_tau", value=total_f1_tau / batch_size, batch_size=batch_size)
         self.log(name=f"{phase_name}_eval_f1_2tau", value=total_f1_2tau / batch_size, batch_size=batch_size)
 
+        return preds
+
+    def validation_step(
+        self,
+        batch: P2MWithDepthBatchData,
+        batch_idx: int,
+        *,
+        phase_name: str = "val",
+    ):
+        self.val_global_step += 1
+        preds = self.custom_step(batch=batch, batch_idx=batch_idx, phase_name=phase_name)
+
         if batch_idx == 0:
             self.custom_batch_log(
                 phase_name=phase_name,
@@ -196,8 +209,6 @@ class P2MModelModule(pl.LightningModule):
                 preds=preds,
                 step=self.current_epoch,
             )
-
-        return
 
     def validation_epoch_end(
         self,
@@ -221,7 +232,7 @@ class P2MModelModule(pl.LightningModule):
 
     def test_step(
         self,
-        batch: P2MBatchData,
+        batch: P2MWithDepthBatchData,
         batch_idx: int,
         *,
         phase_name: str = "test",
@@ -229,11 +240,64 @@ class P2MModelModule(pl.LightningModule):
         if batch_idx == 0:
             self.test_epoch_start(phase_name=phase_name)
 
-        self.validation_step(batch=batch, batch_idx=batch_idx, phase_name=phase_name)
-        return
+        preds = self.custom_step(batch=batch, batch_idx=batch_idx, phase_name=phase_name)
+
+        # TODO: save predicted data
+        output_dir_path = Path(self.options.log_root_path) / "output"
+        output_dir_path.mkdir(parents=True, exist_ok=True)
+        for i_elem in range(len(batch["images"])):
+            # 04256520/1a4a8592046253ab5ff61a3a2a0e2484/rendering/00.dat
+            f = Path(batch["filename"][i_elem])
+            label_id = f.parents[2].name
+            instance_id = f.parents[1].name
+            d = output_dir_path / label_id / instance_id
+            d.mkdir(parents=True, exist_ok=True)
+
+            name: str
+
+            name = "images_orig"
+            torchvision.utils.save_image(batch[name][i_elem], d / f"{name}.png")
+
+            # point cloud
+            for name in ["points_orig"]:
+                PIL.Image.fromarray(
+                    plot_point_cloud(vertices=batch[name][i_elem : i_elem + 1], num_cols=1),
+                ).save(d / f"point_cloud_{name}.png")
+            for scale_i in range(len(preds["pred_coord"])):
+                name = "pred_coord"
+                PIL.Image.fromarray(
+                    plot_point_cloud(vertices=preds[name][scale_i][i_elem : i_elem + 1], num_cols=1),
+                ).save(d / f"point_cloud_{name}_{scale_i}.png")
+
+            # mesh
+            for scale_i in range(len(preds["pred_coord"])):
+                name = "pred_coord"
+                torchvision.utils.save_image(
+                    plot_pred_meshes(
+                        coords=preds[name][scale_i][i_elem],
+                        faces=self.ellipsoid.faces[scale_i] + 1,  # 0-origin to 1-origin
+                        mtl_filepath=Path(self.options.mtl_filepath),
+                        usemtl_name=self.options.usemtl_name,
+                    )
+                    .squeeze(0)[..., :3]
+                    .permute(2, 0, 1),
+                    d / f"mesh_{name}_{scale_i}.png",
+                )
+
+            # save as obj file
+            for scale_i in range(len(preds["pred_coord"])):
+                name = "pred_coord"
+                with open(d / f"mesh_{name}_{scale_i}.obj", "wt") as f:
+                    write_obj_info(
+                        f=f,
+                        coords=preds[name][scale_i][i_elem],
+                        faces=self.ellipsoid.faces[scale_i] + 1,  # 0-origin to 1-origin
+                        mtl_filename=Path(self.options.mtl_filepath).name,
+                        usemtl_name=self.options.usemtl_name,
+                    )
 
     def test_epoch_end(self, test_step_outputs, *, phase_name: str = "test"):
-        self.validation_epoch_end(validation_step_outputs=test_step_outputs, phase_name="test")
+        self.validation_epoch_end(validation_step_outputs=test_step_outputs, phase_name=phase_name)
         return
 
     def configure_optimizers(self):
@@ -258,10 +322,16 @@ class P2MModelModule(pl.LightningModule):
             case _:
                 raise NotImplementedError(f"Your optimizer is not found: {self.options.optim.name}")
 
-        self.lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
+        # self.lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
+        #     self.solver,
+        #     milestones=self.options.optim.lr_step,
+        #     gamma=self.options.optim.lr_factor,
+        # )
+        self.lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
             self.solver,
-            milestones=self.options.optim.lr_step,
-            gamma=self.options.optim.lr_factor,
+            T_0=50,
+            T_mult=1,
+            eta_min=5e-6,
         )
 
         optimizers: list[torch.optim.optimizer.Optimizer] = [
@@ -276,8 +346,8 @@ class P2MModelModule(pl.LightningModule):
     def custom_batch_log(
         self,
         phase_name: str,
-        batch: P2MBatchData,
-        preds: P2MModelForwardReturn,
+        batch: P2MWithDepthBatchData,
+        preds: P2MModelWithDepthForwardReturn,
         step: int,
     ) -> None:
         batch_size = self.options.batch_size_for_plot

@@ -38,6 +38,7 @@ class OptionsDataset:
 class ModelName(Enum):
     P2M = 0
     P2M_WITH_TEMPLATE = 1
+    P2M_WITH_DEPTH = 2
 
 
 @unique

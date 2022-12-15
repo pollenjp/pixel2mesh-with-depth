@@ -8,8 +8,10 @@ import pytorch_lightning as pl
 # First Party Library
 from p2m.datamodule.base import DataModule
 from p2m.datamodule.pixel2mesh import ShapeNetDataModule
+from p2m.datamodule.pixel2mesh_with_depth import ShapeNetWithDepthDataModule
 from p2m.datamodule.pixel2mesh_with_template import ShapeNetWithTemplateDataModule
 from p2m.lightningmodule.pixel2mesh import P2MModelModule
+from p2m.lightningmodule.pixel2mesh_with_depth import P2MModelWithDepthModule
 from p2m.lightningmodule.pixel2mesh_with_template import P2MModelWithTemplateModule
 from p2m.options import ModelName
 from p2m.options import Options
@@ -30,6 +32,10 @@ name2module: dict[ModelName, ModuleSet] = {
         module=P2MModelWithTemplateModule,
         data_module=ShapeNetWithTemplateDataModule,
     ),
+    ModelName.P2M_WITH_DEPTH: ModuleSet(
+        module=P2MModelWithDepthModule,
+        data_module=ShapeNetWithDepthDataModule,
+    ),
 }
 
 
@@ -38,7 +44,7 @@ def get_module_set(
     options: Options,
 ) -> tuple[DataModule, pl.LightningModule]:
     match model_name:
-        case ModelName.P2M | ModelName.P2M_WITH_TEMPLATE:
+        case ModelName.P2M | ModelName.P2M_WITH_TEMPLATE | ModelName.P2M_WITH_DEPTH:
             module_set = name2module[model_name]
             return (
                 module_set.data_module(

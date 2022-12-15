@@ -22,18 +22,21 @@ class Args:
     name: str
     num_trials: int
     storage: str
+    model: str
 
 
 def get_args() -> Args:
     parser = argparse.ArgumentParser(description="BBO (black-box optimization)")
-    parser.add_argument("--name", default="bbo-study", type=str)
+    parser.add_argument("--name", required=True, type=str)
     parser.add_argument("--num_trials", required=True, type=int)
+    parser.add_argument("--model", required=True, type=str)
     parser.add_argument("--storage", default="sqlite:///db.sqlite3", type=str)
     args = parser.parse_args()
     return Args(
         name=args.name,
         num_trials=args.num_trials,
         storage=args.storage,
+        model=args.model,
     )
 
 
@@ -60,12 +63,12 @@ def main() -> None:
         params_float_step = {
             # "loss.weights.chamfer_opposite": (0.005, 1.0),  # 0.55
             # "loss.weights.edge": (0.01, 1.0),  # 0.1
-            "loss.weights.laplace": (0.1, 1.0),  # 0.5
+            "loss.weights.laplace": (0.1, 3.0),  # 0.5
         }
         params_float_log = {
-            "loss.weights.move": (1e-3, 0.1),  # 0.033
-            "loss.weights.normal": (1e-4, 0.1),  # 0.00016
-            "optim.lr": (1e-5, 1e-3),
+            # "loss.weights.move": (1e-3, 0.1),  # 0.033
+            # "loss.weights.normal": (1e-4, 0.1),  # 0.00016
+            # "optim.lr": (1e-5, 1e-3),  # 0.0001",
         }
 
         suggest_params = {}
@@ -82,8 +85,10 @@ def main() -> None:
                 "run",
                 "python",
                 "src/train.py",
-                "model=pixel2mesh",
+                f"model={args.model}",
                 "dataset=resnet_with_template_airplane",
+                "batch_size=32",
+                "num_workers=16",
             ]
             + [f"{key}={val}" for key, val in suggest_params.items()],
             cwd=None,
