@@ -25,6 +25,7 @@ matplotlib = "^3.6.2"
 pytorch-lightning = "^1.8.3.post0"
 hydra-core = "^1.2.0"
 optuna = "^3.0.4"
+wandb = "^0.13.6"
 
 
 [tool.poetry.group.dev.dependencies]

@@ -15,6 +15,7 @@ from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import Logger
 from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import WandbLogger
 
 # First Party Library
 from p2m import get_module_set
@@ -52,7 +53,12 @@ def main(cfg: DictConfig) -> None:
     logger.info(f"{logger_root_path=}")
 
     pl_loggers: list[Logger] = [
-        TensorBoardLogger(save_dir=logger_root_path / "tensorboard", name=options.model.name.name)
+        TensorBoardLogger(save_dir=logger_root_path / "tensorboard", name=options.model.name.name),
+        WandbLogger(
+            save_dir=logger_root_path / "wandb",
+            name=options.model.name.name,
+            project=f"{options.model.name.name}",
+        ),
     ]
 
     callbacks = {
