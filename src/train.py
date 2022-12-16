@@ -56,8 +56,8 @@ def main(cfg: DictConfig) -> None:
         TensorBoardLogger(save_dir=logger_root_path / "tensorboard", name=options.model.name.name),
         WandbLogger(
             save_dir=logger_root_path / "wandb",
-            name=options.model.name.name,
-            project=f"{options.model.name.name}",
+            name=f"{options.model.name.name}_{options.datetime}",
+            project="p2m",
         ),
     ]
 
@@ -72,7 +72,7 @@ def main(cfg: DictConfig) -> None:
         "learning_rate_monitor": LearningRateMonitor(logging_interval="epoch"),
         "early_stopping": EarlyStopping(
             monitor="val_loss",
-            patience=20,
+            patience=120,  # TODO: hyper parameter
         ),
     }
 

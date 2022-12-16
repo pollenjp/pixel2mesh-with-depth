@@ -109,6 +109,7 @@ class OptionsOptim:
 class Options:
     num_workers: int
 
+    datetime: str  # %Y-%m-%dT%H%M%S
     log_root_path: str
     checkpoint_path: str | None  # Checkpointへのpath
     dataset: OptionsDataset
