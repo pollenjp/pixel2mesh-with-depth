@@ -242,7 +242,10 @@ class P2MModelWithDepthModule(pl.LightningModule):
 
         preds = self.custom_step(batch=batch, batch_idx=batch_idx, phase_name=phase_name)
 
-        # TODO: save predicted data
+        if batch_idx > 0:
+            return
+
+        # save predicted data
         output_dir_path = Path(self.options.log_root_path) / "output"
         output_dir_path.mkdir(parents=True, exist_ok=True)
         for i_elem in range(len(batch["images"])):
