@@ -10,7 +10,6 @@ import torch
 from skimage import io
 from skimage import transform
 from torch.utils.data.dataloader import default_collate
-from torchvision.transforms import Normalize
 
 # First Party Library
 from p2m import config
@@ -82,7 +81,7 @@ class ShapeNetWithDepth(BaseDataset):
 
         # TODO: need to be check
         # scaling
-        img = img / 255.0
+        # img = img / 255.0
 
         pts -= np.array(self.mesh_pos)
         assert pts.shape[0] == normals.shape[0]
