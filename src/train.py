@@ -57,7 +57,7 @@ def main(cfg: DictConfig) -> None:
         WandbLogger(
             save_dir=logger_root_path / "wandb",
             name=f"{options.model.name.name}_{options.datetime}",
-            project="p2m",
+            project=f"P2M-{options.model.name.name}",
         ),
     ]
 
