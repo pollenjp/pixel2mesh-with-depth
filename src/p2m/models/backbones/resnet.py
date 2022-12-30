@@ -12,6 +12,13 @@ class P2MResNet(ResNet):
         self.output_dim = 0
         super().__init__(*args, **kwargs)
 
+        self.features_dims: list[int] = [
+            256,
+            512,
+            1024,
+            2048,
+        ]
+
     def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
         res = super()._make_layer(block, planes, blocks, stride=stride, dilate=dilate)
         self.output_dim += self.inplanes

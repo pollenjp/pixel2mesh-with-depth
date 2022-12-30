@@ -15,6 +15,8 @@ from p2m.models.layers.gbottleneck import GBottleneck
 from p2m.models.layers.gconv import GConv
 from p2m.models.layers.gpooling import GUnpooling
 from p2m.models.layers.gprojection import GProjection
+from p2m.options import OptionsModel
+from p2m.utils.mesh import Ellipsoid
 
 
 @unique
@@ -76,7 +78,14 @@ class MergeFeatures(nn.Module):
 
 
 class P2MModelWithDepth(nn.Module):
-    def __init__(self, options, ellipsoid, camera_f, camera_c, mesh_pos):
+    def __init__(
+        self,
+        options: OptionsModel,
+        ellipsoid: Ellipsoid,
+        camera_f,
+        camera_c,
+        mesh_pos,
+    ):
         super().__init__()
 
         self.hidden_dim = options.hidden_dim
@@ -89,12 +98,9 @@ class P2MModelWithDepth(nn.Module):
         self.depth_nn_encoder, self.depth_nn_decoder = get_backbone(options)
 
         # self.merge_features = MergeFeatures(MergeType.ADD)
-        block_dims = [
-            256,
-            512,
-            1024,
-            2048,
-        ]
+        block_dims = self.nn_encoder.features_dims
+
+        # merge rgb-encoder and depth-encoder features
         self.merge_features = MergeFeatures(
             MergeType.CONCAT_AND_REDUCTION,
             options={
@@ -134,10 +140,19 @@ class P2MModelWithDepth(nn.Module):
             ]
         )
 
-        self.unpooling = nn.ModuleList([GUnpooling(ellipsoid.unpool_idx[0]), GUnpooling(ellipsoid.unpool_idx[1])])
+        self.unpooling = nn.ModuleList(
+            [
+                GUnpooling(ellipsoid.unpool_idx[0]),
+                GUnpooling(ellipsoid.unpool_idx[1]),
+            ],
+        )
 
         self.projection = GProjection(
-            mesh_pos, camera_f, camera_c, bound=options.z_threshold, tensorflow_compatible=options.align_with_tensorflow
+            mesh_pos,
+            camera_f,
+            camera_c,
+            bound=options.z_threshold,
+            tensorflow_compatible=options.align_with_tensorflow,
         )
 
         self.gconv = GConv(in_features=self.last_hidden_dim, out_features=self.coord_dim, adj_mat=ellipsoid.adj_mat[2])

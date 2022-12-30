@@ -13,10 +13,19 @@ from p2m.models.layers.gbottleneck import GBottleneck
 from p2m.models.layers.gconv import GConv
 from p2m.models.layers.gpooling import GUnpooling
 from p2m.models.layers.gprojection import GProjection
+from p2m.options import OptionsModel
+from p2m.utils.mesh import Ellipsoid
 
 
 class P2MModelWithTemplate(nn.Module):
-    def __init__(self, options, ellipsoid, camera_f, camera_c, mesh_pos):
+    def __init__(
+        self,
+        options: OptionsModel,
+        ellipsoid: Ellipsoid,
+        camera_f,
+        camera_c,
+        mesh_pos,
+    ):
         # ellipsoid は隣接行列と次元数を渡すために使用
         super().__init__()
 

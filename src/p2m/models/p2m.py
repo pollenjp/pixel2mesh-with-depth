@@ -13,10 +13,19 @@ from p2m.models.layers.gbottleneck import GBottleneck
 from p2m.models.layers.gconv import GConv
 from p2m.models.layers.gpooling import GUnpooling
 from p2m.models.layers.gprojection import GProjection
+from p2m.options import OptionsModel
+from p2m.utils.mesh import Ellipsoid
 
 
 class P2MModel(nn.Module):
-    def __init__(self, options, ellipsoid, camera_f, camera_c, mesh_pos):
+    def __init__(
+        self,
+        options: OptionsModel,
+        ellipsoid: Ellipsoid,
+        camera_f,
+        camera_c,
+        mesh_pos,
+    ):
         super().__init__()
 
         self.hidden_dim = options.hidden_dim
@@ -57,7 +66,12 @@ class P2MModel(nn.Module):
             ]
         )
 
-        self.unpooling = nn.ModuleList([GUnpooling(ellipsoid.unpool_idx[0]), GUnpooling(ellipsoid.unpool_idx[1])])
+        self.unpooling = nn.ModuleList(
+            [
+                GUnpooling(ellipsoid.unpool_idx[0]),
+                GUnpooling(ellipsoid.unpool_idx[1]),
+            ],
+        )
 
         self.projection = GProjection(
             mesh_pos, camera_f, camera_c, bound=options.z_threshold, tensorflow_compatible=options.align_with_tensorflow

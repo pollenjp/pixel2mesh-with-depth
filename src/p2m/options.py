@@ -1,5 +1,4 @@
 # Standard Library
-import typing as t
 from collections.abc import MutableMapping
 from collections.abc import MutableSequence
 from dataclasses import dataclass
@@ -48,7 +47,7 @@ class ModelName(Enum):
 @unique
 class ModelBackbone(Enum):
     RESNET50 = 0
-    VGG16 = 1
+    VGG16P2M = 1
 
 
 @dataclass

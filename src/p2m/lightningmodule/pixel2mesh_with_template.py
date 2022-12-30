@@ -17,7 +17,6 @@ from p2m.models.losses.p2m_loss import P2MLoss
 from p2m.models.losses.p2m_loss import P2MLossForwardReturnSecondDict
 from p2m.models.p2m_with_template import P2MModelWithTemplate
 from p2m.models.p2m_with_template import P2MModelWithTemplateForwardReturn
-from p2m.options import OptimName
 from p2m.options import Options
 from p2m.options import generate_lr_scheduler
 from p2m.options import generate_optimizer
