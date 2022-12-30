@@ -9,6 +9,7 @@ defaults:
   - dataset: resnet_with_template
   - model: pixel2mesh
   - optim: adam
+  - lr_scheduler: cosine_annealing_warm_restarts
   - loss: default
 
 datetime: ${now:%Y-%m-%dT%H%M%S}

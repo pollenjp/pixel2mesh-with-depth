@@ -17,8 +17,9 @@ from p2m.models.losses.p2m_loss import P2MLoss
 from p2m.models.losses.p2m_loss import P2MLossForwardReturnSecondDict
 from p2m.models.p2m import P2MModel
 from p2m.models.p2m import P2MModelForwardReturn
-from p2m.options import OptimName
 from p2m.options import Options
+from p2m.options import generate_lr_scheduler
+from p2m.options import generate_optimizer
 from p2m.utils import pl_loggers
 from p2m.utils.average_meter import AverageMeter
 from p2m.utils.eval import calc_f1_score
@@ -305,33 +306,13 @@ class P2MModelModule(pl.LightningModule):
 
     def configure_optimizers(self):
 
-        # Set up solver
-        self.solver: torch.optim.optimizer.Optimizer
-        match self.options.optim.name:
-            case OptimName.ADAM:
-                self.solver = torch.optim.Adam(
-                    params=list(self.model.parameters()),
-                    lr=self.options.optim.lr,
-                    betas=(self.options.optim.params[0], self.options.optim.params[1]),
-                    weight_decay=self.options.optim.weight_decay,
-                )
-            case OptimName.SGD:
-                self.solver = torch.optim.SGD(
-                    params=list(self.model.parameters()),
-                    lr=self.options.optim.lr,
-                    momentum=self.options.optim.params[0],
-                    weight_decay=self.options.optim.weight_decay,
-                )
-            case _:
-                raise NotImplementedError(f"Your optimizer is not found: {self.options.optim.name}")
-
-        self.lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
-            self.solver,
-            milestones=self.options.optim.lr_step,
-            gamma=self.options.optim.lr_factor,
+        self.solver: torch.optim.Optimizer = generate_optimizer(
+            model=self.model,
+            optim_data=self.options.optim,
         )
+        self.lr_scheduler = generate_lr_scheduler(optimizer=self.solver, scheduler_data=self.options.lr_scheduler)
 
-        optimizers: list[torch.optim.optimizer.Optimizer] = [
+        optimizers: list[torch.optim.Optimizer] = [
             self.solver,
         ]
         lr_schedulers: list = [

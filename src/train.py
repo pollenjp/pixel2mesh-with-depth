@@ -50,12 +50,13 @@ def main(cfg: DictConfig) -> None:
     )
 
     logger_root_path = Path(options.log_root_path) / "lightning_logs"
+    logger_root_path.mkdir(parents=True, exist_ok=True)
     logger.info(f"{logger_root_path=}")
 
     pl_loggers: list[Logger] = [
         TensorBoardLogger(save_dir=logger_root_path / "tensorboard", name=options.model.name.name),
         WandbLogger(
-            save_dir=logger_root_path / "wandb",
+            save_dir=logger_root_path,
             name=f"{options.model.name.name}_{options.datetime}",
             project=f"P2M-{options.model.name.name}",
         ),

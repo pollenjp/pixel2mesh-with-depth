@@ -1,0 +1,6 @@
+name: COSINE_ANNEALING_WARM_RESTARTS
+params:
+  - 100 # T_0
+  - 1 # T_mul
+  - 0.000005 # eta_min
+list_params: null
