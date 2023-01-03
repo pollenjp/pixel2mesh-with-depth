@@ -1,5 +1,6 @@
 # Third Party Library
 import numpy as np
+import numpy.typing as npt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -37,8 +38,10 @@ class GProjection(nn.Module):
         return x
 
     @staticmethod
-    def image_feature_shape(img):
-        return np.array([img.size(-1), img.size(-2)])
+    def image_feature_shape(img: torch.Tensor) -> npt.NDArray[np.uint8]:
+        w = img.size(-1)
+        h = img.size(-2)
+        return np.array([w, h])
 
     def project_tensorflow(self, x, y, img_size, img_feat):
         x = torch.clamp(x, min=0, max=img_size[1] - 1)
@@ -70,11 +73,24 @@ class GProjection(nn.Module):
         output = Q11 + Q21 + Q12 + Q22
         return output
 
-    def calc_sample_points(self, resolution, inputs):
+    def calc_sample_points(self, resolution: npt.NDArray[np.uint8], inputs: torch.Tensor):
+        """_summary_
+
+        Args:
+            resolution (npt.NDArray[np.uint8]): _description_
+            inputs (torch.Tensor):
+                (num_batch, num_vertices, 3)
+
+        Returns:
+            _type_: _description_
+        """
         half_resolution = (resolution - 1) / 2
         camera_c_offset = np.array(self.camera_c) - half_resolution
+
         # map to [-1, 1]
-        # not sure why they render to negative x
+        # 投射した際の画像内の座標を計算
+        # mesh_pos で z軸方向 (奥行き) に対して, 移動させているがこれがカメラのz位置では？
+        # 今回のデータセットの inputs が大体 +-0.5 に収まるくらいだからってことかな
         positions = inputs + torch.tensor(self.mesh_pos, device=inputs.device, dtype=torch.float)
         w = -self.camera_f[0] * (positions[:, :, 0] / self.bound_val(positions[:, :, 2])) + camera_c_offset[0]
         h = self.camera_f[1] * (positions[:, :, 1] / self.bound_val(positions[:, :, 2])) + camera_c_offset[1]
@@ -96,19 +112,30 @@ class GProjection(nn.Module):
 
         return (w, h)
 
-    def forward(self, resolution, img_features, inputs):
+    def forward(
+        self,
+        resolution: npt.NDArray[np.uint8],
+        img_features: torch.Tensor,
+        inputs: torch.Tensor,
+    ) -> torch.Tensor:
 
         w, h = self.calc_sample_points(resolution, inputs)
 
         feats = [inputs]
         for img_feature in img_features:  # each data in batch
-            feats.append(self.project(resolution, img_feature, torch.stack([w, h], dim=-1)))
+            feats.append(
+                self.project(
+                    img_shape=resolution,
+                    img_feat=img_feature,
+                    sample_points=torch.stack([w, h], dim=-1),  # (batch_size, num_points, 2)
+                ),
+            )
 
         output = torch.cat(feats, 2)
 
         return output
 
-    def project(self, img_shape, img_feat, sample_points):
+    def project(self, img_shape, img_feat, sample_points: torch.Tensor):
         """
         :param img_shape: raw image shape
         :param img_feat: [batch_size x channel x h x w]
@@ -127,11 +154,19 @@ class GProjection(nn.Module):
                 0,
             )
         else:
-            output = F.grid_sample(img_feat, sample_points.unsqueeze(1), align_corners=True)
+            # (batch_size, num_channels, 1, num_points)
+            # num_channels is img_feat.size(1)
+            output = F.grid_sample(
+                img_feat,
+                sample_points.unsqueeze(1),  # (batch_size, 1, num_points, 2)
+                align_corners=True,
+            )
             # torch/nn/functional.py:4215:
             # UserWarning: Default grid_sample and affine_grid behavior has changed to align_corners=False since 1.3.0.
             # Please specify align_corners=True if the old behavior is desired.
             # See the documentation of grid_sample for details.
+
+            # (batch_size, num_points, num_channels)
             output = torch.transpose(output.squeeze(2), 1, 2)
 
         return output

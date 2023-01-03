@@ -167,7 +167,7 @@ class P2MModelWithDepth(nn.Module):
 
         img_shape = self.projection.image_feature_shape(img)
 
-        init_pts = self.init_pts.data.unsqueeze(0).expand(batch_size, -1, -1)
+        init_pts: torch.Tensor = self.init_pts.data.unsqueeze(0).expand(batch_size, -1, -1)
         # GCN Block 1
         x = self.projection(img_shape, encoded_features, init_pts)
         x1, x_hidden = self.gcns[0](x)

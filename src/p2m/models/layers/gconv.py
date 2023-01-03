@@ -12,7 +12,13 @@ class GConv(nn.Module):
     Similar to https://arxiv.org/abs/1609.02907
     """
 
-    def __init__(self, in_features, out_features, adj_mat, bias=True):
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        adj_mat: torch.Tensor,
+        bias: bool = True,
+    ):
         super(GConv, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -33,7 +39,7 @@ class GConv(nn.Module):
         nn.init.xavier_uniform_(self.weight.data)
         nn.init.xavier_uniform_(self.loop_weight.data)
 
-    def forward(self, inputs):
+    def forward(self, inputs: torch.Tensor):
         support = torch.matmul(inputs, self.weight)
         support_loop = torch.matmul(inputs, self.loop_weight)
         output = dot(self.adj_mat, support, True) + support_loop

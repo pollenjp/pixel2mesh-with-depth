@@ -1,4 +1,5 @@
 # Third Party Library
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -26,7 +27,15 @@ class GResBlock(nn.Module):
 
 
 class GBottleneck(nn.Module):
-    def __init__(self, block_num, in_dim, hidden_dim, out_dim, adj_mat, activation=None):
+    def __init__(
+        self,
+        block_num: int,
+        in_dim: int,
+        hidden_dim: int,
+        out_dim: int,
+        adj_mat: torch.Tensor,
+        activation: bool | None = None,
+    ):
         super(GBottleneck, self).__init__()
 
         resblock_layers = [
@@ -43,7 +52,19 @@ class GBottleneck(nn.Module):
         self.conv2 = GConv(in_features=hidden_dim, out_features=out_dim, adj_mat=adj_mat)
         self.activation = F.relu if activation else None
 
-    def forward(self, inputs):
+    def forward(
+        self,
+        inputs: torch.Tensor,
+    ):
+        """_summary_
+
+        Args:
+            inputs (torch.Tensor):
+                (num_batch, num_point, num_channel)
+
+        Returns:
+            _type_: _description_
+        """
         x = self.conv1(inputs)
         if self.activation:
             x = self.activation(x)
