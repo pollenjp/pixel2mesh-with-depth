@@ -17,7 +17,6 @@ class P2MLoss(nn.Module):
     def __init__(self, options: OptionsLoss, ellipsoid):
         super().__init__()
         self.options = options
-        self.l1_loss = nn.L1Loss(reduction="mean")
         self.l2_loss = nn.MSELoss(reduction="mean")
         # self.chamfer_dist = ChamferDist()
         self.laplace_idx = nn.ParameterList(
@@ -38,6 +37,36 @@ class P2MLoss(nn.Module):
         :return:
         """
         return self.l2_loss(pred[:, edges[:, 0]], pred[:, edges[:, 1]]) * pred.size(-1)
+
+    @staticmethod
+    def edge_variance_regularization(pred, edges) -> torch.Tensor:
+        num_edges = edges.size(0)
+
+        # TODO: edge variance selection
+
+        # Size(batch_size, num_edges, 3,)
+        # '3' is (x,y,z) coordinates
+        p1 = pred[:, edges[:, 0]]
+        p2 = pred[:, edges[:, 1]]
+
+        # Size(batch_size, num_edges,)
+        edge_length_square = (p1 - p2).pow(2).sum(dim=2)
+
+        # escape 0 division
+        # TODO: 1e-8 or 1e-12?
+        edge_length = (edge_length_square + 1e-12).sqrt()
+
+        # Size(batch_size, 1,)
+        edge_mean = edge_length.mean(dim=1, keepdim=True)
+
+        # Size(batch_size, num_edges,)
+        edge_variance = torch.nn.functional.mse_loss(
+            edge_length,
+            edge_mean.expand(-1, num_edges),
+            # reduce=False,
+            reduction="mean",
+        )
+        return edge_variance
 
     @staticmethod
     def laplace_coord(inputs, lap_idx):
