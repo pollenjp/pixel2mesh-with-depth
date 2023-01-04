@@ -73,9 +73,7 @@ class P2MModel(nn.Module):
             ],
         )
 
-        self.projection = GProjection(
-            mesh_pos, camera_f, camera_c, bound=options.z_threshold, tensorflow_compatible=options.align_with_tensorflow
-        )
+        self.projection = GProjection(mesh_pos, camera_f, camera_c, bound=options.z_threshold)
 
         self.gconv = GConv(in_features=self.last_hidden_dim, out_features=self.coord_dim, adj_mat=ellipsoid.adj_mat[2])
 
