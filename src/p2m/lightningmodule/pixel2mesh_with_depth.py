@@ -17,7 +17,8 @@ from p2m.models.losses.p2m_loss import P2MLoss
 from p2m.models.losses.p2m_loss import P2MLossForwardReturnSecondDict
 from p2m.models.p2m_with_depth import P2MModelWithDepth
 from p2m.models.p2m_with_depth import P2MModelWithDepthForwardReturn
-from p2m.options import OptimName
+from p2m.models.p2m_with_depth_3d_cnn import P2MModelWithDepth3dCNN
+from p2m.options import ModelName
 from p2m.options import Options
 from p2m.options import generate_lr_scheduler
 from p2m.options import generate_optimizer
@@ -39,13 +40,27 @@ class P2MModelWithDepthModule(pl.LightningModule):
         super().__init__(**kwargs)
         self.options = options
         self.ellipsoid = Ellipsoid(self.options.dataset.mesh_pos)
-        self.model = P2MModelWithDepth(
-            self.options.model,
-            self.ellipsoid,
-            self.options.dataset.camera_f,
-            self.options.dataset.camera_c,
-            self.options.dataset.mesh_pos,
-        )
+
+        match options.model.name:
+            case ModelName.P2M_WITH_DEPTH:
+                self.model = P2MModelWithDepth(
+                    self.options.model,
+                    self.ellipsoid,
+                    self.options.dataset.camera_f,
+                    self.options.dataset.camera_c,
+                    self.options.dataset.mesh_pos,
+                )
+            case ModelName.P2M_WITH_DEPTH_3D_CNN:
+                self.model = P2MModelWithDepth3dCNN(
+                    self.options.model,
+                    self.ellipsoid,
+                    self.options.dataset.camera_f,
+                    self.options.dataset.camera_c,
+                    self.options.dataset.mesh_pos,
+                )
+            case _:
+                raise ValueError(f"Invalid model name: {options.model.name}")
+
         self.p2m_loss = P2MLoss(self.options.loss, self.ellipsoid).cuda()
 
         self.train_epoch_loss_avg_meters: dict[str, AverageMeter] = {
@@ -329,7 +344,7 @@ class P2MModelWithDepthModule(pl.LightningModule):
         preds: P2MModelWithDepthForwardReturn,
         step: int,
     ) -> None:
-        batch_size = self.options.batch_size_for_plot
+        batch_size = min(self.options.batch_size_for_plot, len(batch["images_orig"]))
 
         pl_loggers.pl_log_images(
             pl_logger=self.loggers,

@@ -328,7 +328,7 @@ class P2MModelModule(pl.LightningModule):
         preds: P2MModelForwardReturn,
         step: int,
     ) -> None:
-        batch_size = self.options.batch_size_for_plot
+        batch_size = min(self.options.batch_size_for_plot, len(batch["images"]))
 
         pl_loggers.pl_log_images(
             pl_logger=self.loggers,
