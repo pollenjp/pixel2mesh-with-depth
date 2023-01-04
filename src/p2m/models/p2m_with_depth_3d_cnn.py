@@ -1,0 +1,338 @@
+# Third Party Library
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torchvision
+
+# First Party Library
+from p2m.datasets.shapenet_with_depth import P2MWithDepthBatchData
+from p2m.models.backbones import get_backbone
+from p2m.models.layers.gbottleneck import GBottleneck
+from p2m.models.layers.gconv import GConv
+from p2m.models.layers.gpooling import GUnpooling
+from p2m.models.layers.gprojection import GProjection
+from p2m.options import OptionsModel
+from p2m.utils.mesh import Ellipsoid
+
+# Local Library
+from .p2m_with_depth import MergeFeatures
+from .p2m_with_depth import MergeType
+from .p2m_with_depth import P2MModelWithDepthForwardReturn
+
+
+class DepthEncoder(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        resnet = torchvision.models.resnet50(pretrained=True)
+
+        # torch.Size([batch_size, 512, 28, 28])
+        self.resnet = torch.nn.Sequential(
+            *[
+                resnet.conv1,
+                resnet.bn1,
+                resnet.relu,
+                resnet.maxpool,
+                resnet.layer1,
+                resnet.layer2,
+                resnet.layer3,
+                resnet.layer4,
+            ]
+        )[:6]
+
+        # torch.Size([batch_size, 512 * 28, 28, 28])
+        self.encoder_dim: int = 28
+        self.volume_dim: int = 28
+        self.volume_ch_dim: int = 32
+        ch_dim = self.volume_ch_dim * self.volume_dim
+        assert self.volume_ch_dim * self.volume_dim**3 == ch_dim * self.encoder_dim**2
+        self.encoder_layer1 = torch.nn.Sequential(
+            torch.nn.Conv2d(512, ch_dim, kernel_size=3, padding=1),
+            torch.nn.BatchNorm2d(num_features=ch_dim),
+            # torch.nn.ReLU(),
+        )
+
+        # torch.Size([batch_size, 512, 28, 28, 28])
+
+        self.channel_dim: int = 0
+
+        # torch.Size([batch_size, ch, 56, 56, 56])
+        ch_dim_pre, ch_dim_current = self.volume_ch_dim, 16
+        self.decoder_layer1 = torch.nn.Sequential(
+            torch.nn.ConvTranspose3d(
+                ch_dim_pre,
+                ch_dim_current,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+            ),
+            torch.nn.BatchNorm3d(num_features=ch_dim_current),
+            torch.nn.ReLU(),
+        )
+        self.channel_dim += ch_dim_current
+
+        # torch.Size([batch_size, ch, 112, 112, 112])
+        ch_dim_pre, ch_dim_current = ch_dim_current, 8
+        self.decoder_layer2 = torch.nn.Sequential(
+            torch.nn.ConvTranspose3d(
+                ch_dim_pre,
+                ch_dim_current,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+            ),
+            torch.nn.BatchNorm3d(num_features=ch_dim_current),
+            torch.nn.ReLU(),
+        )
+        self.channel_dim += ch_dim_current
+
+        # torch.Size([batch_size, ch, 224, 224, 224])
+        ch_dim_pre, ch_dim_current = ch_dim_current, 4
+        self.decoder_layer3 = torch.nn.Sequential(
+            torch.nn.ConvTranspose3d(
+                ch_dim_pre,
+                ch_dim_current,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+            ),
+            torch.nn.BatchNorm3d(num_features=ch_dim_current),
+            torch.nn.ReLU(),
+        )
+        self.channel_dim += ch_dim_current
+
+    def forward(self, x):
+        x = self.resnet(x)
+        x = self.encoder_layer1(x)
+
+        num_batch = x.size(0)
+        x = x.view(num_batch, self.volume_ch_dim, self.volume_dim, self.volume_dim, self.volume_dim)
+
+        features = []
+
+        x = self.decoder_layer1(x)
+        features.append(x)
+        x = self.decoder_layer2(x)
+        features.append(x)
+        x = self.decoder_layer3(x)
+        features.append(x)
+        assert (
+            sum([feat.size(1) for feat in features]) == self.channel_dim
+        ), f"{sum([feat.size(1) for feat in features])} != {self.channel_dim}"
+
+        return features
+
+
+class GProjection3D(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    @staticmethod
+    def calc_sample_points(pts: torch.Tensor) -> torch.Tensor:
+        """
+
+        Args:
+            pts (torch.Tensor):
+                Size(batch_size, num_points, 3)
+                x, y, z がそれぞれ (-0.5, 0.5) 範囲の座標であることを仮定
+
+        Returns: torch.Tensor
+            Size(batch_size, num_points, 3)
+        """
+        # x = pts[:, :, 0] * 2
+        # y = pts[:, :, 1] * 2
+        # z = pts[:, :, 1] * 2
+        # return torch.stack(
+        #     [x, y, z],
+        #     dim=-1,
+        # )
+        return torch.clamp(pts * 2, -1.0, 1.0)
+
+    @staticmethod
+    def project(feature: torch.Tensor, sample_points: torch.Tensor):
+        """_summary_
+
+        Args:
+            feature (torch.Tensor): _description_
+            sample_points (torch.Tensor):
+                Size(batch_size, num_points, 3)
+
+        Returns:
+            _type_: _description_
+        """
+
+        # Size()
+        output = F.grid_sample(
+            feature,  # (batch_size, num_channels, depth, height, width)
+            sample_points.unsqueeze(1).unsqueeze(1),  # (batch_size, 1, 1, num_points, 2) (N, D_out, H_out, W_out, 3)
+            align_corners=True,
+        )
+        # (batch_size, num_points, num_channels)
+        return torch.transpose(output.squeeze(2).squeeze(2), 1, 2)
+
+    def forward(
+        self,
+        features: torch.Tensor,
+        points: torch.Tensor,
+    ) -> torch.Tensor:
+
+        sample_points = self.calc_sample_points(points)
+
+        feats = []
+        for feat in features:  # each data in batch
+            feats.append(
+                self.project(
+                    feature=feat,
+                    sample_points=sample_points,
+                ),
+            )
+
+        # Size(batch_size, num_points, num_channels)
+        output = torch.cat(feats, 2)
+
+        return output
+
+
+class P2MModelWithDepth3dCNN(nn.Module):
+    def __init__(
+        self,
+        options: OptionsModel,
+        ellipsoid: Ellipsoid,
+        camera_f,
+        camera_c,
+        mesh_pos,
+    ):
+        super().__init__()
+
+        self.hidden_dim = options.hidden_dim
+        self.coord_dim = options.coord_dim
+        self.last_hidden_dim = options.last_hidden_dim
+        self.init_pts = nn.parameter.Parameter(ellipsoid.coord, requires_grad=False)
+        self.gconv_activation = options.gconv_activation
+
+        self.nn_encoder, self.nn_decoder = get_backbone(options)
+        self.depth_nn_encoder = DepthEncoder()
+
+        # self.merge_features = MergeFeatures(MergeType.ADD)
+        block_dims = self.nn_encoder.features_dims
+
+        # merge rgb-encoder and depth-encoder features
+        self.merge_features = MergeFeatures(
+            MergeType.CONCAT_AND_REDUCTION,
+            options={
+                "in_dims": [d * 2 for d in block_dims],
+                "out_dims": block_dims,
+            },
+        )
+
+        self.unpooling = nn.ModuleList(
+            [
+                GUnpooling(ellipsoid.unpool_idx[0]),
+                GUnpooling(ellipsoid.unpool_idx[1]),
+            ],
+        )
+
+        self.projection = GProjection(
+            mesh_pos,
+            camera_f,
+            camera_c,
+            bound=options.z_threshold,
+        )
+
+        self.depth_projection = GProjection3D()
+
+        self.gconv = GConv(in_features=self.last_hidden_dim, out_features=self.coord_dim, adj_mat=ellipsoid.adj_mat[2])
+
+        self.features_dim: int = self.coord_dim + self.nn_encoder.features_dim + self.depth_nn_encoder.channel_dim
+
+        self.gcns = nn.ModuleList(
+            [
+                GBottleneck(
+                    6,
+                    self.features_dim,
+                    self.hidden_dim,
+                    self.coord_dim,
+                    ellipsoid.adj_mat[0],
+                    activation=self.gconv_activation,
+                ),
+                GBottleneck(
+                    6,
+                    self.features_dim + self.hidden_dim,
+                    self.hidden_dim,
+                    self.coord_dim,
+                    ellipsoid.adj_mat[1],
+                    activation=self.gconv_activation,
+                ),
+                GBottleneck(
+                    6,
+                    self.features_dim + self.hidden_dim,
+                    self.hidden_dim,
+                    self.last_hidden_dim,
+                    ellipsoid.adj_mat[2],
+                    activation=self.gconv_activation,
+                ),
+            ]
+        )
+
+    def forward(self, batch: P2MWithDepthBatchData):
+        img = batch["images"]
+        batch_size = img.size(0)
+        img_features = self.nn_encoder(img)
+        depth_encoded_features = self.depth_nn_encoder(batch["depth_images"].repeat(1, 3, 1, 1))
+
+        img_shape = self.projection.image_feature_shape(img)
+
+        init_pts: torch.Tensor = self.init_pts.data.unsqueeze(0).expand(batch_size, -1, -1)
+        # GCN Block 1
+        x_img = self.projection(img_shape, img_features, init_pts)
+        x_d = self.depth_projection(depth_encoded_features, init_pts)
+
+        # Size(batch_size, num_points, num_channels)
+        x = torch.cat([x_img, x_d], dim=2)
+        assert x.size(2) == self.features_dim
+
+        x1, x_hidden = self.gcns[0](x)
+
+        # before deformation 2
+        x1_up = self.unpooling[0](x1)
+
+        # GCN Block 2
+        x_img = self.projection(img_shape, img_features, x1)
+        x_d = self.depth_projection(depth_encoded_features, x1)
+
+        # Size(batch_size, num_points, num_channels)
+        x = torch.cat([x_img, x_d], dim=2)
+        assert x.size(2) == self.features_dim
+
+        x = self.unpooling[0](torch.cat([x, x_hidden], 2))
+
+        # after deformation 2
+        x2, x_hidden = self.gcns[1](x)
+
+        # before deformation 3
+        x2_up = self.unpooling[1](x2)
+
+        # GCN Block 3
+
+        x_img = self.projection(img_shape, img_features, x2)
+        x_d = self.depth_projection(depth_encoded_features, x2)
+        # Size(batch_size, num_points, num_channels)
+        x = torch.cat([x_img, x_d], dim=2)
+        assert x.size(2) == self.features_dim
+
+        x = self.unpooling[1](torch.cat([x, x_hidden], 2))
+        x3, _ = self.gcns[2](x)
+        if self.gconv_activation:
+            x3 = F.relu(x3)
+        # after deformation 3
+        x3 = self.gconv(x3)
+
+        if self.nn_decoder is not None:
+            reconst = self.nn_decoder(img_features)
+        else:
+            reconst = None
+
+        return {"pred_coord": [x1, x2, x3], "pred_coord_before_deform": [init_pts, x1_up, x2_up], "reconst": reconst}
+
+
+P2MModelWithDepth3DCNNForwardReturn = P2MModelWithDepthForwardReturn

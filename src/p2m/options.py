@@ -42,6 +42,7 @@ class ModelName(Enum):
     P2M = 0
     P2M_WITH_TEMPLATE = 1
     P2M_WITH_DEPTH = 2
+    P2M_WITH_DEPTH_3D_CNN = 3
 
 
 @unique
