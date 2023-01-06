@@ -94,8 +94,8 @@ class P2MModelWithDepth(nn.Module):
         self.init_pts = nn.parameter.Parameter(ellipsoid.coord, requires_grad=False)
         self.gconv_activation = options.gconv_activation
 
-        self.nn_encoder, self.nn_decoder = get_backbone(options)
-        self.depth_nn_encoder, self.depth_nn_decoder = get_backbone(options)
+        self.nn_encoder, self.nn_decoder = get_backbone(options.backbone)
+        self.depth_nn_encoder, self.depth_nn_decoder = get_backbone(options.backbone)
 
         # self.merge_features = MergeFeatures(MergeType.ADD)
         block_dims = self.nn_encoder.features_dims

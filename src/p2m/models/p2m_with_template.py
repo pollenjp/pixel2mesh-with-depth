@@ -34,7 +34,7 @@ class P2MModelWithTemplate(nn.Module):
         self.last_hidden_dim = options.last_hidden_dim
         self.gconv_activation = options.gconv_activation
 
-        self.nn_encoder, self.nn_decoder = get_backbone(options)
+        self.nn_encoder, self.nn_decoder = get_backbone(options.backbone)
         self.features_dim = self.nn_encoder.features_dim + self.coord_dim
 
         self.gcns = nn.ModuleList(

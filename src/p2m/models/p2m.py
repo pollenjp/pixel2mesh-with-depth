@@ -34,7 +34,7 @@ class P2MModel(nn.Module):
         self.init_pts = nn.parameter.Parameter(ellipsoid.coord, requires_grad=False)
         self.gconv_activation = options.gconv_activation
 
-        self.nn_encoder, self.nn_decoder = get_backbone(options)
+        self.nn_encoder, self.nn_decoder = get_backbone(options.backbone)
         self.features_dim = self.nn_encoder.features_dim + self.coord_dim
 
         self.gcns = nn.ModuleList(
