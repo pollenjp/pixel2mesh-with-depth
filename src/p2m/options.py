@@ -44,6 +44,7 @@ class ModelName(Enum):
     P2M_WITH_DEPTH = 2
     P2M_WITH_DEPTH_3D_CNN = 3
     P2M_WITH_DEPTH_3D_CNN_CONCAT = 4
+    P2M_WITH_DEPTH_RESNET_3D_CNN = 5
 
 
 @unique

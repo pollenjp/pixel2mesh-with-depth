@@ -50,15 +50,7 @@ class P2MModelWithDepthModule(pl.LightningModule):
                     self.options.dataset.camera_c,
                     self.options.dataset.mesh_pos,
                 )
-            case ModelName.P2M_WITH_DEPTH_3D_CNN:
-                self.model = P2MModelWithDepth3dCNN(
-                    self.options.model,
-                    self.ellipsoid,
-                    self.options.dataset.camera_f,
-                    self.options.dataset.camera_c,
-                    self.options.dataset.mesh_pos,
-                )
-            case ModelName.P2M_WITH_DEPTH_3D_CNN_CONCAT:
+            case ModelName.P2M_WITH_DEPTH_3D_CNN | ModelName.P2M_WITH_DEPTH_3D_CNN_CONCAT | ModelName.P2M_WITH_DEPTH_RESNET_3D_CNN:
                 self.model = P2MModelWithDepth3dCNN(
                     self.options.model,
                     self.ellipsoid,

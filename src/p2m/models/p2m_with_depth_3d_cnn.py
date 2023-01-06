@@ -14,6 +14,7 @@ from p2m.models.layers.gbottleneck import GBottleneck
 from p2m.models.layers.gconv import GConv
 from p2m.models.layers.gpooling import GUnpooling
 from p2m.models.layers.gprojection import GProjection
+from p2m.options import ModelBackbone
 from p2m.options import ModelName
 from p2m.options import OptionsModel
 from p2m.utils.mesh import Ellipsoid
@@ -122,6 +123,154 @@ class DepthEncoder(torch.nn.Module):
         assert (
             sum([feat.size(1) for feat in features]) == self.channel_dim
         ), f"{sum([feat.size(1) for feat in features])} != {self.channel_dim}"
+
+        return features
+
+
+class Depth3DEncoder(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.channel_dim: int = 0
+
+        # torch.Size([batch_size, 256, 56, 56])
+        # torch.Size([batch_size, 512, 28, 28])
+        # torch.Size([batch_size, 1024, 14, 14])
+        # torch.Size([batch_size, 2048, 7, 7])
+        self.resnet, _ = get_backbone(ModelBackbone.RESNET50)
+
+        # scale1
+
+        self.scale1_ch_dim_mid: int = 56
+        self.scale1_ch_dim_last: int = 8
+        self.scale1_size: int = 56
+        self.scale1_1x1conv = torch.nn.Sequential(
+            torch.nn.Conv2d(
+                256,
+                self.scale1_size * self.scale1_ch_dim_mid,
+                kernel_size=1,
+            ),
+            torch.nn.BatchNorm2d(num_features=self.scale1_size * self.scale1_ch_dim_mid),
+            torch.nn.ReLU(),
+        )
+        self.scale1_conv3d = torch.nn.Sequential(
+            torch.nn.ConvTranspose3d(
+                self.scale1_ch_dim_mid,
+                self.scale1_ch_dim_last,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+            ),
+            torch.nn.BatchNorm3d(num_features=self.scale1_ch_dim_last),
+            torch.nn.ReLU(),
+        )
+        self.channel_dim += self.scale1_ch_dim_last
+
+        # scale2
+
+        self.scale2_ch_dim_mid: int = 18
+        self.scale2_ch_dim_last: int = 16
+        self.scale2_size: int = 28
+        self.scale2_1x1conv = torch.nn.Sequential(
+            torch.nn.Conv2d(
+                512,
+                self.scale2_size * self.scale2_ch_dim_mid,
+                kernel_size=1,
+            ),
+            torch.nn.BatchNorm2d(num_features=self.scale2_size * self.scale2_ch_dim_mid),
+            torch.nn.ReLU(),
+        )
+        self.scale2_conv3d = torch.nn.Sequential(
+            torch.nn.ConvTranspose3d(
+                self.scale2_ch_dim_mid,
+                self.scale2_ch_dim_last,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+            ),
+            torch.nn.BatchNorm3d(num_features=self.scale2_ch_dim_last),
+            torch.nn.ReLU(),
+        )
+        self.channel_dim += self.scale2_ch_dim_last
+
+        # scale3
+
+        self.scale3_ch_dim_mid: int = 64
+        self.scale3_ch_dim_last: int = 32
+        self.scale3_size: int = 14
+        self.scale3_1x1conv = torch.nn.Sequential(
+            torch.nn.Conv2d(
+                1024,
+                self.scale3_size * self.scale3_ch_dim_mid,
+                kernel_size=1,
+            ),
+            torch.nn.BatchNorm2d(num_features=self.scale3_size * self.scale3_ch_dim_mid),
+            torch.nn.ReLU(),
+        )
+        self.scale3_conv3d = torch.nn.Sequential(
+            torch.nn.ConvTranspose3d(
+                self.scale3_ch_dim_mid,
+                self.scale3_ch_dim_last,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+            ),
+            torch.nn.BatchNorm3d(num_features=self.scale3_ch_dim_last),
+            torch.nn.ReLU(),
+        )
+        self.channel_dim += self.scale3_ch_dim_last
+
+        # scale4
+
+        self.scale4_ch_dim_mid: int = 256
+        self.scale4_ch_dim_last: int = 64
+        self.scale4_size: int = 7
+        self.scale4_1x1conv = torch.nn.Sequential(
+            torch.nn.Conv2d(
+                2048,
+                self.scale4_size * self.scale4_ch_dim_mid,
+                kernel_size=1,
+            ),
+            torch.nn.BatchNorm2d(num_features=self.scale4_size * self.scale4_ch_dim_mid),
+            torch.nn.ReLU(),
+        )
+        self.scale4_conv3d = torch.nn.Sequential(
+            torch.nn.ConvTranspose3d(
+                self.scale4_ch_dim_mid,
+                self.scale4_ch_dim_last,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+            ),
+            torch.nn.BatchNorm3d(num_features=self.scale4_ch_dim_last),
+            torch.nn.ReLU(),
+        )
+        self.channel_dim += self.scale4_ch_dim_last
+
+    def forward(self, x):
+        (x1, x2, x3, x4) = self.resnet(x)
+        batch_size: int = x1.size(0)
+
+        features = []
+
+        x = self.scale1_1x1conv(x1)
+        x = x.view(batch_size, self.scale1_ch_dim_mid, self.scale1_size, self.scale1_size, self.scale1_size)
+        x = self.scale1_conv3d(x)
+        features.append(x)
+
+        x = self.scale2_1x1conv(x2)
+        x = x.view(batch_size, self.scale2_ch_dim_mid, self.scale2_size, self.scale2_size, self.scale2_size)
+        x = self.scale2_conv3d(x)
+        features.append(x)
+
+        x = self.scale3_1x1conv(x3)
+        x = x.view(batch_size, self.scale3_ch_dim_mid, self.scale3_size, self.scale3_size, self.scale3_size)
+        x = self.scale3_conv3d(x)
+        features.append(x)
+
+        x = self.scale4_1x1conv(x4)
+        x = x.view(batch_size, self.scale4_ch_dim_mid, self.scale4_size, self.scale4_size, self.scale4_size)
+        x = self.scale4_conv3d(x)
+        features.append(x)
 
         return features
 
@@ -239,8 +388,6 @@ class P2MModelWithDepth3dCNN(nn.Module):
 
         self.nn_encoder, self.nn_decoder = get_backbone(options.backbone)
 
-        self.depth_nn_encoder = DepthEncoder()
-
         self.unpooling = nn.ModuleList(
             [
                 GUnpooling(ellipsoid.unpool_idx[0]),
@@ -261,10 +408,17 @@ class P2MModelWithDepth3dCNN(nn.Module):
 
         match options.name:
             case ModelName.P2M_WITH_DEPTH_3D_CNN:
+                self.depth_nn_encoder = DepthEncoder()
+                self.features_dim: int = (
+                    self.coord_dim + self.nn_encoder.features_dim + self.depth_nn_encoder.channel_dim
+                )
+            case ModelName.P2M_WITH_DEPTH_RESNET_3D_CNN:
+                self.depth_nn_encoder = Depth3DEncoder()
                 self.features_dim: int = (
                     self.coord_dim + self.nn_encoder.features_dim + self.depth_nn_encoder.channel_dim
                 )
             case ModelName.P2M_WITH_DEPTH_3D_CNN_CONCAT:
+                self.depth_nn_encoder = DepthEncoder()
                 self.features_dim: int = self.coord_dim + self.nn_encoder.features_dim
                 self.features_merger1 = ProjectedFeaturesMerger(
                     MergeType.CONCAT_AND_REDUCTION,
@@ -281,6 +435,7 @@ class P2MModelWithDepth3dCNN(nn.Module):
                     in_dim=self.coord_dim + self.nn_encoder.features_dim + self.depth_nn_encoder.channel_dim,
                     out_dim=self.nn_encoder.features_dim,
                 )
+
             case _:
                 raise NotImplementedError(f"Model {options.name} is not implemented yet.")
 
@@ -327,7 +482,7 @@ class P2MModelWithDepth3dCNN(nn.Module):
 
         # Size(batch_size, num_points, num_channels)
         match self.options.name:
-            case ModelName.P2M_WITH_DEPTH_3D_CNN:
+            case ModelName.P2M_WITH_DEPTH_3D_CNN | ModelName.P2M_WITH_DEPTH_RESNET_3D_CNN:
                 x_img = self.projection(img_shape, img_features, init_pts)
                 x_d = self.depth_projection(depth_encoded_features, init_pts)
                 x = torch.cat([x_img, x_d], dim=2)
@@ -350,7 +505,7 @@ class P2MModelWithDepth3dCNN(nn.Module):
 
         # Size(batch_size, num_points, num_channels)
         match self.options.name:
-            case ModelName.P2M_WITH_DEPTH_3D_CNN:
+            case ModelName.P2M_WITH_DEPTH_3D_CNN | ModelName.P2M_WITH_DEPTH_RESNET_3D_CNN:
                 x_img = self.projection(img_shape, img_features, x1)
                 x_d = self.depth_projection(depth_encoded_features, x1)
                 x = torch.cat([x_img, x_d], dim=2)
@@ -376,7 +531,7 @@ class P2MModelWithDepth3dCNN(nn.Module):
 
         # Size(batch_size, num_points, num_channels)
         match self.options.name:
-            case ModelName.P2M_WITH_DEPTH_3D_CNN:
+            case ModelName.P2M_WITH_DEPTH_3D_CNN | ModelName.P2M_WITH_DEPTH_RESNET_3D_CNN:
                 x_img = self.projection(img_shape, img_features, x2)
                 x_d = self.depth_projection(depth_encoded_features, x2)
                 x = torch.cat([x_img, x_d], dim=2)
