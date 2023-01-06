@@ -1,0 +1,5 @@
+# rendering
+
+```sh
+make run
+```
