@@ -58,6 +58,14 @@ class P2MModelWithDepthModule(pl.LightningModule):
                     self.options.dataset.camera_c,
                     self.options.dataset.mesh_pos,
                 )
+            case ModelName.P2M_WITH_DEPTH_3D_CNN_CONCAT:
+                self.model = P2MModelWithDepth3dCNN(
+                    self.options.model,
+                    self.ellipsoid,
+                    self.options.dataset.camera_f,
+                    self.options.dataset.camera_c,
+                    self.options.dataset.mesh_pos,
+                )
             case _:
                 raise ValueError(f"Invalid model name: {options.model.name}")
 
@@ -259,7 +267,7 @@ class P2MModelWithDepthModule(pl.LightningModule):
 
         preds = self.custom_step(batch=batch, batch_idx=batch_idx, phase_name=phase_name)
 
-        if batch_idx > 0:
+        if batch_idx > 3:
             return
 
         # save predicted data

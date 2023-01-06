@@ -40,6 +40,10 @@ name2module: dict[ModelName, ModuleSet] = {
         module=P2MModelWithDepthModule,
         data_module=ShapeNetWithDepthDataModule,
     ),
+    ModelName.P2M_WITH_DEPTH_3D_CNN_CONCAT: ModuleSet(
+        module=P2MModelWithDepthModule,
+        data_module=ShapeNetWithDepthDataModule,
+    ),
 }
 
 
@@ -60,5 +64,7 @@ def get_module_set(
                     options=options,
                 ),
             )
+        case ModelName.P2M_WITH_DEPTH_3D_CNN_CONCAT:
+            raise NotImplementedError("Not implemented yet")
         case _:
             raise ValueError(f"Unknown module name: {model_name}")

@@ -1,3 +1,6 @@
+# Standard Library
+import typing as t
+
 # Third Party Library
 import torch
 import torch.nn as nn
@@ -11,11 +14,11 @@ from p2m.models.layers.gbottleneck import GBottleneck
 from p2m.models.layers.gconv import GConv
 from p2m.models.layers.gpooling import GUnpooling
 from p2m.models.layers.gprojection import GProjection
+from p2m.options import ModelName
 from p2m.options import OptionsModel
 from p2m.utils.mesh import Ellipsoid
 
 # Local Library
-from .p2m_with_depth import MergeFeatures
 from .p2m_with_depth import MergeType
 from .p2m_with_depth import P2MModelWithDepthForwardReturn
 
@@ -128,13 +131,14 @@ class GProjection3D(torch.nn.Module):
         super().__init__()
 
     @staticmethod
-    def calc_sample_points(pts: torch.Tensor) -> torch.Tensor:
+    def calc_sample_points(pts: torch.Tensor, multi: float = 4.0) -> torch.Tensor:
         """
 
         Args:
             pts (torch.Tensor):
                 Size(batch_size, num_points, 3)
-                x, y, z がそれぞれ (-0.5, 0.5) 範囲の座標であることを仮定
+                x*multi, y*multi, z*multi がそれぞれ (-1.0, 1.0) 範囲の座標であることを想定
+                範囲外はclamp
 
         Returns: torch.Tensor
             Size(batch_size, num_points, 3)
@@ -146,7 +150,7 @@ class GProjection3D(torch.nn.Module):
         #     [x, y, z],
         #     dim=-1,
         # )
-        return torch.clamp(pts * 2, -1.0, 1.0)
+        return torch.clamp(pts * multi, -1.0, 1.0)
 
     @staticmethod
     def project(feature: torch.Tensor, sample_points: torch.Tensor):
@@ -193,6 +197,28 @@ class GProjection3D(torch.nn.Module):
         return output
 
 
+class ProjectedFeaturesMerger(nn.Module):
+    def __init__(self, merge_type: MergeType, in_dim: int, out_dim: int):
+        super().__init__()
+
+        self.merge_type = merge_type
+
+        match self.merge_type:
+            case MergeType.CONCAT_AND_REDUCTION:
+                self.layers = torch.nn.ModuleList([torch.nn.Conv2d(in_dim, out_dim, kernel_size=1)])
+                raise NotImplementedError
+
+    def forward(self, a_feature: torch.Tensor, b_feature: torch.Tensor) -> torch.Tensor:
+        match self.merge_type:
+            case MergeType.CONCAT_AND_REDUCTION:
+                # concatenate along the channel dimension and reduce with a 1x1 conv
+                # Size(batch_size, num_points, num_channels)
+                x = torch.cat([a_feature.unsqueeze(2), b_feature.unsqueeze(2)], dim=2)
+                return self.layers[0](x)
+            case _:
+                raise NotImplementedError(f"Merge type {self.merge_type} not implemented")
+
+
 class P2MModelWithDepth3dCNN(nn.Module):
     def __init__(
         self,
@@ -204,6 +230,7 @@ class P2MModelWithDepth3dCNN(nn.Module):
     ):
         super().__init__()
 
+        self.options: OptionsModel = options
         self.hidden_dim = options.hidden_dim
         self.coord_dim = options.coord_dim
         self.last_hidden_dim = options.last_hidden_dim
@@ -212,18 +239,6 @@ class P2MModelWithDepth3dCNN(nn.Module):
 
         self.nn_encoder, self.nn_decoder = get_backbone(options)
         self.depth_nn_encoder = DepthEncoder()
-
-        # self.merge_features = MergeFeatures(MergeType.ADD)
-        block_dims = self.nn_encoder.features_dims
-
-        # merge rgb-encoder and depth-encoder features
-        self.merge_features = MergeFeatures(
-            MergeType.CONCAT_AND_REDUCTION,
-            options={
-                "in_dims": [d * 2 for d in block_dims],
-                "out_dims": block_dims,
-            },
-        )
 
         self.unpooling = nn.ModuleList(
             [
@@ -243,7 +258,30 @@ class P2MModelWithDepth3dCNN(nn.Module):
 
         self.gconv = GConv(in_features=self.last_hidden_dim, out_features=self.coord_dim, adj_mat=ellipsoid.adj_mat[2])
 
-        self.features_dim: int = self.coord_dim + self.nn_encoder.features_dim + self.depth_nn_encoder.channel_dim
+        match options.name:
+            case ModelName.P2M_WITH_DEPTH_3D_CNN:
+                self.features_dim: int = (
+                    self.coord_dim + self.nn_encoder.features_dim + self.depth_nn_encoder.channel_dim
+                )
+            case ModelName.P2M_WITH_DEPTH_3D_CNN_CONCAT:
+                self.features_dim: int = self.coord_dim + self.nn_encoder.features_dim
+                self.features_merger1 = ProjectedFeaturesMerger(
+                    MergeType.CONCAT_AND_REDUCTION,
+                    in_dim=self.coord_dim + self.nn_encoder.features_dim + self.depth_nn_encoder.channel_dim,
+                    out_dim=self.nn_encoder.features_dim,
+                )
+                self.features_merger2 = ProjectedFeaturesMerger(
+                    MergeType.CONCAT_AND_REDUCTION,
+                    in_dim=self.coord_dim + self.nn_encoder.features_dim + self.depth_nn_encoder.channel_dim,
+                    out_dim=self.nn_encoder.features_dim,
+                )
+                self.features_merger3 = ProjectedFeaturesMerger(
+                    MergeType.CONCAT_AND_REDUCTION,
+                    in_dim=self.coord_dim + self.nn_encoder.features_dim + self.depth_nn_encoder.channel_dim,
+                    out_dim=self.nn_encoder.features_dim,
+                )
+            case _:
+                raise NotImplementedError(f"Model {options.name} is not implemented yet.")
 
         self.gcns = nn.ModuleList(
             [
@@ -283,12 +321,23 @@ class P2MModelWithDepth3dCNN(nn.Module):
         img_shape = self.projection.image_feature_shape(img)
 
         init_pts: torch.Tensor = self.init_pts.data.unsqueeze(0).expand(batch_size, -1, -1)
+
         # GCN Block 1
-        x_img = self.projection(img_shape, img_features, init_pts)
-        x_d = self.depth_projection(depth_encoded_features, init_pts)
 
         # Size(batch_size, num_points, num_channels)
-        x = torch.cat([x_img, x_d], dim=2)
+        match self.options.name:
+            case ModelName.P2M_WITH_DEPTH_3D_CNN:
+                x_img = self.projection(img_shape, img_features, init_pts)
+                x_d = self.depth_projection(depth_encoded_features, init_pts)
+                x = torch.cat([x_img, x_d], dim=2)
+            case ModelName.P2M_WITH_DEPTH_3D_CNN_CONCAT:
+                x = self.features_merger1(
+                    self.projection(img_shape, img_features, init_pts),
+                    self.depth_projection(depth_encoded_features, init_pts),
+                )
+                x = torch.concat([init_pts, x], dim=2)
+            case _:
+                raise NotImplementedError(f"Model {self.options.name} is not implemented yet.")
         assert x.size(2) == self.features_dim
 
         x1, x_hidden = self.gcns[0](x)
@@ -297,11 +346,21 @@ class P2MModelWithDepth3dCNN(nn.Module):
         x1_up = self.unpooling[0](x1)
 
         # GCN Block 2
-        x_img = self.projection(img_shape, img_features, x1)
-        x_d = self.depth_projection(depth_encoded_features, x1)
 
         # Size(batch_size, num_points, num_channels)
-        x = torch.cat([x_img, x_d], dim=2)
+        match self.options.name:
+            case ModelName.P2M_WITH_DEPTH_3D_CNN:
+                x_img = self.projection(img_shape, img_features, x1)
+                x_d = self.depth_projection(depth_encoded_features, x1)
+                x = torch.cat([x_img, x_d], dim=2)
+            case ModelName.P2M_WITH_DEPTH_3D_CNN_CONCAT:
+                x = self.features_merger1(
+                    self.projection(img_shape, img_features, x1),
+                    self.depth_projection(depth_encoded_features, x1),
+                )
+                x = torch.concat([x1, x], dim=2)
+            case _:
+                raise NotImplementedError(f"Model {self.options.name} is not implemented yet.")
         assert x.size(2) == self.features_dim
 
         x = self.unpooling[0](torch.cat([x, x_hidden], 2))
@@ -314,10 +373,20 @@ class P2MModelWithDepth3dCNN(nn.Module):
 
         # GCN Block 3
 
-        x_img = self.projection(img_shape, img_features, x2)
-        x_d = self.depth_projection(depth_encoded_features, x2)
         # Size(batch_size, num_points, num_channels)
-        x = torch.cat([x_img, x_d], dim=2)
+        match self.options.name:
+            case ModelName.P2M_WITH_DEPTH_3D_CNN:
+                x_img = self.projection(img_shape, img_features, x2)
+                x_d = self.depth_projection(depth_encoded_features, x2)
+                x = torch.cat([x_img, x_d], dim=2)
+            case ModelName.P2M_WITH_DEPTH_3D_CNN_CONCAT:
+                x = self.features_merger1(
+                    self.projection(img_shape, img_features, x2),
+                    self.depth_projection(depth_encoded_features, x2),
+                )
+                x = torch.concat([x2, x], dim=2)
+            case _:
+                raise NotImplementedError(f"Model {self.options.name} is not implemented yet.")
         assert x.size(2) == self.features_dim
 
         x = self.unpooling[1](torch.cat([x, x_hidden], 2))

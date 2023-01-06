@@ -79,11 +79,14 @@ class GProjection(nn.Module):
         resolution: npt.NDArray[np.uint8],
         img_features: torch.Tensor,
         inputs: torch.Tensor,
+        insert_inputs: bool = True,
     ) -> torch.Tensor:
 
         w, h = self.calc_sample_points(resolution, inputs)
 
-        feats = [inputs]
+        feats = []
+        if insert_inputs:
+            feats.append(inputs)
         for img_feature in img_features:  # each scale features
             feats.append(
                 self.project(
