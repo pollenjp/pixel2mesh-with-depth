@@ -225,11 +225,13 @@ def main(
                 output_dirpath.mkdir(parents=True, exist_ok=True)
                 renderer.render(filepath=output_dirpath / f"{output_name}_i{i}-j{j}")
 
-    render(
-        renderer=renderer,
-        azimuth_list=[0, 60, 120, 180, 240, 300],
-        elevation_list=[0, 30, 60, 90],
-    )
+    azimuth_list = [0.0, 60.0, 120.0, 180.0, 240.0, 300.0]
+    elevation_list = [0.0, 30.0, 60.0, 90.0]
+    i = 3
+    j = 1
+    azimuth_list = azimuth_list[i:i+1]
+    elevation_list = elevation_list[j:j+1]
+    render(renderer=renderer, azimuth_list=azimuth_list, elevation_list=elevation_list)
 
     # For debugging the workflow
     if debug_mode is True:
