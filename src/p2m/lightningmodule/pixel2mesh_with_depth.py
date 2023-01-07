@@ -42,7 +42,7 @@ class P2MModelWithDepthModule(pl.LightningModule):
         self.ellipsoid = Ellipsoid(self.options.dataset.mesh_pos)
 
         match options.model.name:
-            case ModelName.P2M_WITH_DEPTH:
+            case ModelName.P2M_WITH_DEPTH | ModelName.P2M_WITH_DEPTH_ONLY:
                 self.model = P2MModelWithDepth(
                     self.options.model,
                     self.ellipsoid,

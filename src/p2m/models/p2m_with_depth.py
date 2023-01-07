@@ -15,6 +15,7 @@ from p2m.models.layers.gbottleneck import GBottleneck
 from p2m.models.layers.gconv import GConv
 from p2m.models.layers.gpooling import GUnpooling
 from p2m.models.layers.gprojection import GProjection
+from p2m.options import ModelName
 from p2m.options import OptionsModel
 from p2m.utils.mesh import Ellipsoid
 
@@ -88,28 +89,37 @@ class P2MModelWithDepth(nn.Module):
     ):
         super().__init__()
 
+        self.options = options
         self.hidden_dim = options.hidden_dim
         self.coord_dim = options.coord_dim
         self.last_hidden_dim = options.last_hidden_dim
         self.init_pts = nn.parameter.Parameter(ellipsoid.coord, requires_grad=False)
         self.gconv_activation = options.gconv_activation
 
-        self.nn_encoder, self.nn_decoder = get_backbone(options.backbone)
-        self.depth_nn_encoder, self.depth_nn_decoder = get_backbone(options.backbone)
+        self.features_dim: int
+        match self.options.name:
+            case ModelName.P2M_WITH_DEPTH:
+                self.nn_encoder, _ = get_backbone(options.backbone)
+                self.depth_nn_encoder, _ = get_backbone(options.backbone)
 
-        # self.merge_features = MergeFeatures(MergeType.ADD)
-        block_dims = self.nn_encoder.features_dims
+                # self.merge_features = MergeFeatures(MergeType.ADD)
+                block_dims = self.nn_encoder.features_dims
 
-        # merge rgb-encoder and depth-encoder features
-        self.merge_features = MergeFeatures(
-            MergeType.CONCAT_AND_REDUCTION,
-            options={
-                "in_dims": [d * 2 for d in block_dims],
-                "out_dims": block_dims,
-            },
-        )
+                # merge rgb-encoder and depth-encoder features
+                self.merge_features = MergeFeatures(
+                    MergeType.CONCAT_AND_REDUCTION,
+                    options={
+                        "in_dims": [d * 2 for d in block_dims],
+                        "out_dims": block_dims,
+                    },
+                )
 
-        self.features_dim = self.nn_encoder.features_dim + self.coord_dim
+                self.features_dim = self.coord_dim + self.nn_encoder.features_dim
+            case ModelName.P2M_WITH_DEPTH_ONLY:
+                self.depth_nn_encoder, _ = get_backbone(options.backbone)
+                self.features_dim = self.coord_dim + self.depth_nn_encoder.features_dim
+            case _:
+                raise ValueError(f"Model name {self.options.name} not supported")
 
         self.gcns = nn.ModuleList(
             [
@@ -159,10 +169,16 @@ class P2MModelWithDepth(nn.Module):
     def forward(self, batch: P2MWithDepthBatchData):
         img = batch["images"]
         batch_size = img.size(0)
-        img_features = self.nn_encoder(img)
-        depth_img_feats = self.depth_nn_encoder(batch["depth_images"].repeat(1, 3, 1, 1))
-
-        encoded_features = self.merge_features(img_features, depth_img_feats)
+        match self.options.name:
+            case ModelName.P2M_WITH_DEPTH:
+                img_features = self.nn_encoder(img)
+                depth_img_feats = self.depth_nn_encoder(batch["depth_images"].repeat(1, 3, 1, 1))
+                encoded_features = self.merge_features(img_features, depth_img_feats)
+            case ModelName.P2M_WITH_DEPTH_ONLY:
+                depth_img_feats = self.depth_nn_encoder(batch["depth_images"].repeat(1, 3, 1, 1))
+                encoded_features = depth_img_feats
+            case _:
+                raise ValueError(f"Model name {self.options.name} not supported")
 
         img_shape = self.projection.image_feature_shape(img)
 
@@ -192,12 +208,7 @@ class P2MModelWithDepth(nn.Module):
         # after deformation 3
         x3 = self.gconv(x3)
 
-        if self.nn_decoder is not None:
-            reconst = self.nn_decoder(encoded_features)
-        else:
-            reconst = None
-
-        return {"pred_coord": [x1, x2, x3], "pred_coord_before_deform": [init_pts, x1_up, x2_up], "reconst": reconst}
+        return {"pred_coord": [x1, x2, x3], "pred_coord_before_deform": [init_pts, x1_up, x2_up], "reconst": None}
 
 
 class P2MModelWithDepthForwardReturn(t.TypedDict):
