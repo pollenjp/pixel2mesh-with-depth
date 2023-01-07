@@ -243,7 +243,7 @@ class P2MModelModule(pl.LightningModule):
 
         preds = self.custom_step(batch=batch, batch_idx=batch_idx, phase_name=phase_name)
 
-        if batch_idx > 0:
+        if batch_idx > 3:
             return
 
         # save predicted data

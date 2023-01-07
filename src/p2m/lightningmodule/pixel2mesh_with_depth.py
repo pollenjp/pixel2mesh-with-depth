@@ -270,7 +270,7 @@ class P2MModelWithDepthModule(pl.LightningModule):
             f = Path(batch["filename"][i_elem])
             label_id = f.parents[2].name
             instance_id = f.parents[1].name
-            d = output_dir_path / label_id / instance_id
+            d = output_dir_path / label_id / instance_id / f.stem
             d.mkdir(parents=True, exist_ok=True)
 
             name: str
