@@ -15,6 +15,7 @@ from p2m.models.layers.gbottleneck import GBottleneck
 from p2m.models.layers.gconv import GConv
 from p2m.models.layers.gpooling import GUnpooling
 from p2m.models.layers.gprojection import GProjection
+from p2m.options import ModelBackbone
 from p2m.options import ModelName
 from p2m.options import OptionsModel
 from p2m.utils.mesh import Ellipsoid
@@ -115,6 +116,13 @@ class P2MModelWithDepth(nn.Module):
                 )
 
                 self.features_dim = self.coord_dim + self.nn_encoder.features_dim
+            case ModelName.P2M_WITH_DEPTH_RESNET:
+                self.nn_encoder, _ = get_backbone(options.backbone)
+                self.depth_nn_encoder, _ = get_backbone(ModelBackbone.RESNET50)
+                self.features_dim = (
+                    self.coord_dim + self.nn_encoder.features_dim + self.coord_dim + self.depth_nn_encoder.features_dim
+                )
+
             case ModelName.P2M_WITH_DEPTH_ONLY:
                 self.depth_nn_encoder, _ = get_backbone(options.backbone)
                 self.features_dim = self.coord_dim + self.depth_nn_encoder.features_dim
@@ -174,6 +182,9 @@ class P2MModelWithDepth(nn.Module):
                 img_features = self.nn_encoder(img)
                 depth_img_feats = self.depth_nn_encoder(batch["depth_images"].repeat(1, 3, 1, 1))
                 encoded_features = self.merge_features(img_features, depth_img_feats)
+            case ModelName.P2M_WITH_DEPTH_RESNET:
+                img_features = self.nn_encoder(img)
+                depth_img_feats = self.depth_nn_encoder(batch["depth_images"].repeat(1, 3, 1, 1))
             case ModelName.P2M_WITH_DEPTH_ONLY:
                 depth_img_feats = self.depth_nn_encoder(batch["depth_images"].repeat(1, 3, 1, 1))
                 encoded_features = depth_img_feats
@@ -184,14 +195,26 @@ class P2MModelWithDepth(nn.Module):
 
         init_pts: torch.Tensor = self.init_pts.data.unsqueeze(0).expand(batch_size, -1, -1)
         # GCN Block 1
-        x = self.projection(img_shape, encoded_features, init_pts)
+        match self.options.name:
+            case ModelName.P2M_WITH_DEPTH | ModelName.P2M_WITH_DEPTH_ONLY:
+                x = self.projection(img_shape, encoded_features, init_pts)
+            case ModelName.P2M_WITH_DEPTH_RESNET:
+                x_img = self.projection(img_shape, img_features, init_pts)
+                x_depth = self.projection(img_shape, depth_img_feats, init_pts)
+                x = torch.cat([x_img, x_depth], dim=2)
         x1, x_hidden = self.gcns[0](x)
 
         # before deformation 2
         x1_up = self.unpooling[0](x1)
 
         # GCN Block 2
-        x = self.projection(img_shape, encoded_features, x1)
+        match self.options.name:
+            case ModelName.P2M_WITH_DEPTH | ModelName.P2M_WITH_DEPTH_ONLY:
+                x = self.projection(img_shape, encoded_features, x1)
+            case ModelName.P2M_WITH_DEPTH_RESNET:
+                x_img = self.projection(img_shape, img_features, x1)
+                x_depth = self.projection(img_shape, depth_img_feats, x1)
+                x = torch.cat([x_img, x_depth], dim=2)
         x = self.unpooling[0](torch.cat([x, x_hidden], 2))
         # after deformation 2
         x2, x_hidden = self.gcns[1](x)
@@ -200,7 +223,13 @@ class P2MModelWithDepth(nn.Module):
         x2_up = self.unpooling[1](x2)
 
         # GCN Block 3
-        x = self.projection(img_shape, encoded_features, x2)
+        match self.options.name:
+            case ModelName.P2M_WITH_DEPTH | ModelName.P2M_WITH_DEPTH_ONLY:
+                x = self.projection(img_shape, encoded_features, x2)
+            case ModelName.P2M_WITH_DEPTH_RESNET:
+                x_img = self.projection(img_shape, img_features, x2)
+                x_depth = self.projection(img_shape, depth_img_feats, x2)
+                x = torch.cat([x_img, x_depth], dim=2)
         x = self.unpooling[1](torch.cat([x, x_hidden], 2))
         x3, _ = self.gcns[2](x)
         if self.gconv_activation:

@@ -39,13 +39,14 @@ class OptionsDataset:
 
 @unique
 class ModelName(Enum):
-    P2M = 0
-    P2M_WITH_TEMPLATE = 1
-    P2M_WITH_DEPTH = 2
-    P2M_WITH_DEPTH_ONLY = 3
-    P2M_WITH_DEPTH_3D_CNN = 4
-    P2M_WITH_DEPTH_3D_CNN_CONCAT = 5
-    P2M_WITH_DEPTH_RESNET_3D_CNN = 6
+    P2M = "p2m"
+    P2M_WITH_TEMPLATE = "p2m_with_template"
+    P2M_WITH_DEPTH = "p2m_with_depth"
+    P2M_WITH_DEPTH_RESNET = "p2m_with_depth_resnet"
+    P2M_WITH_DEPTH_ONLY = "p2m_with_depth_only"
+    P2M_WITH_DEPTH_3D_CNN = "p2m_with_depth_3d_cnn"
+    P2M_WITH_DEPTH_3D_CNN_CONCAT = "p2m_with_depth_3d_cnn_concat"
+    P2M_WITH_DEPTH_RESNET_3D_CNN = "p2m_with_depth_resnet_3d_cnn"
 
 
 @unique
