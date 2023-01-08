@@ -64,6 +64,6 @@ function download_pytorch3d_wheel() {
     download_from_pytorch_wheel torch "${torch_version_xyz}" "${python_version_xy}" "${cuda_version_xy}"
     download_from_pytorch_wheel torchvision "${torchvision_version_xyz}" "${python_version_xy}" "${cuda_version_xy}"
 
-    pytorch3d_version_xyz="0.7.1"
+    pytorch3d_version_xyz="0.7.2"
     download_pytorch3d_wheel "${pytorch3d_version_xyz}" "${python_version_xy}" "${torch_version_xyz}" "${cuda_version_xy}"
 )
