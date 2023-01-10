@@ -1,6 +1,7 @@
 # Standard Library
 import typing as t
 from dataclasses import dataclass
+from pathlib import Path
 
 # Third Party Library
 import pytorch_lightning as pl
@@ -66,16 +67,26 @@ def get_module_set(
     match model_name:
         case ModelName.P2M | ModelName.P2M_WITH_TEMPLATE | ModelName.P2M_WITH_DEPTH_ONLY | ModelName.P2M_WITH_DEPTH | ModelName.P2M_WITH_DEPTH_RESNET | ModelName.P2M_WITH_DEPTH_3D_CNN | ModelName.P2M_WITH_DEPTH_RESNET_3D_CNN:
             module_set = name2module[model_name]
-            return (
-                module_set.data_module(
-                    options=options,
-                    batch_size=options.batch_size,
-                    num_workers=options.num_workers,
-                ),
-                module_set.module(
-                    options=options,
-                ),
+            data_module = module_set.data_module(
+                options=options,
+                batch_size=options.batch_size,
+                num_workers=options.num_workers,
             )
+
+            class KWArgs(t.TypedDict):
+                options: Options
+
+            kwargs: KWArgs = {
+                "options": options,
+            }
+            if (f := options.pretrained_weight_path) is not None:
+                filepath = Path(f).expanduser()
+                if not filepath.exists():
+                    raise FileNotFoundError(f"File not found: {filepath}")
+                model_module = module_set.module.load_from_checkpoint(str(filepath), **kwargs)
+            else:
+                model_module = module_set.module(**kwargs)
+            return (data_module, model_module)
         case ModelName.P2M_WITH_DEPTH_3D_CNN_CONCAT:
             raise NotImplementedError("Not implemented yet")
         case _:

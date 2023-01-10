@@ -209,6 +209,7 @@ class Options:
 
     datetime: str  # %Y-%m-%dT%H%M%S
     log_root_path: str
+    pretrained_weight_path: str | None
     checkpoint_path: str | None  # Checkpointへのpath
     dataset: OptionsDataset
     model: OptionsModel
