@@ -56,6 +56,10 @@ name2module: dict[ModelName, ModuleSet] = {
         module=P2MModelWithDepthModule,
         data_module=ShapeNetWithDepthDataModule,
     ),
+    ModelName.P2M_WITH_DEPTH_PIX2VOX: ModuleSet(
+        module=P2MModelWithDepthModule,
+        data_module=ShapeNetWithDepthDataModule,
+    ),
 }
 
 
@@ -64,7 +68,7 @@ def get_module_set(
     options: Options,
 ) -> tuple[DataModule, pl.LightningModule]:
     match model_name:
-        case ModelName.P2M | ModelName.P2M_WITH_TEMPLATE | ModelName.P2M_WITH_DEPTH_ONLY | ModelName.P2M_WITH_DEPTH | ModelName.P2M_WITH_DEPTH_RESNET | ModelName.P2M_WITH_DEPTH_3D_CNN | ModelName.P2M_WITH_DEPTH_RESNET_3D_CNN:
+        case ModelName.P2M | ModelName.P2M_WITH_TEMPLATE | ModelName.P2M_WITH_DEPTH_ONLY | ModelName.P2M_WITH_DEPTH | ModelName.P2M_WITH_DEPTH_RESNET | ModelName.P2M_WITH_DEPTH_3D_CNN | ModelName.P2M_WITH_DEPTH_PIX2VOX | ModelName.P2M_WITH_DEPTH_RESNET_3D_CNN | ModelName.P2M_WITH_DEPTH_PIX2VOX:
             module_set = name2module[model_name]
             return (
                 module_set.data_module(

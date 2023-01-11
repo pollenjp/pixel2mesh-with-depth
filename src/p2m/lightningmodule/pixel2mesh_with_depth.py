@@ -42,7 +42,7 @@ class P2MModelWithDepthModule(pl.LightningModule):
         self.ellipsoid = Ellipsoid(self.options.dataset.mesh_pos)
 
         match options.model.name:
-            case ModelName.P2M_WITH_DEPTH | ModelName.P2M_WITH_DEPTH_RESNET | ModelName.P2M_WITH_DEPTH_ONLY:
+            case ModelName.P2M_WITH_DEPTH | ModelName.P2M_WITH_DEPTH_RESNET | ModelName.P2M_WITH_DEPTH_ONLY | ModelName.P2M_WITH_DEPTH_3D_CNN:
                 self.model = P2MModelWithDepth(
                     self.options.model,
                     self.ellipsoid,
@@ -50,7 +50,7 @@ class P2MModelWithDepthModule(pl.LightningModule):
                     self.options.dataset.camera_c,
                     self.options.dataset.mesh_pos,
                 )
-            case ModelName.P2M_WITH_DEPTH_3D_CNN | ModelName.P2M_WITH_DEPTH_3D_CNN_CONCAT | ModelName.P2M_WITH_DEPTH_RESNET_3D_CNN:
+            case ModelName.P2M_WITH_DEPTH_3D_CNN_CONCAT | ModelName.P2M_WITH_DEPTH_RESNET_3D_CNN | ModelName.P2M_WITH_DEPTH_PIX2VOX:
                 self.model = P2MModelWithDepth3dCNN(
                     self.options.model,
                     self.ellipsoid,
