@@ -91,9 +91,8 @@ class Features2DTo3DEncoder(torch.nn.Module):
         self.mid_channels = mid_channels
         self.out_channels = out_channels
 
-        self.channels = in_channels
-        if len(self.channels) != 4:
-            raise ValueError(f"channels must have length 4: {len(self.channels)}")
+        if len(self.in_channels) != 4:
+            raise ValueError(f"channels must have length 4: {len(self.in_channels)}")
 
         # scale1
 
@@ -103,7 +102,7 @@ class Features2DTo3DEncoder(torch.nn.Module):
         self.scale1_size: int = 56
         self.scale1_1x1conv = torch.nn.Sequential(
             torch.nn.Conv2d(
-                self.channels[i],
+                self.in_channels[i],
                 self.scale1_size * self.scale1_ch_dim_mid,
                 kernel_size=1,
             ),
@@ -130,7 +129,7 @@ class Features2DTo3DEncoder(torch.nn.Module):
         self.scale2_size: int = 28
         self.scale2_1x1conv = torch.nn.Sequential(
             torch.nn.Conv2d(
-                self.channels[i],
+                self.in_channels[i],
                 self.scale2_size * self.scale2_ch_dim_mid,
                 kernel_size=1,
             ),
@@ -157,7 +156,7 @@ class Features2DTo3DEncoder(torch.nn.Module):
         self.scale3_size: int = 14
         self.scale3_1x1conv = torch.nn.Sequential(
             torch.nn.Conv2d(
-                self.channels[i],
+                self.in_channels[i],
                 self.scale3_size * self.scale3_ch_dim_mid,
                 kernel_size=1,
             ),
@@ -184,7 +183,7 @@ class Features2DTo3DEncoder(torch.nn.Module):
         self.scale4_size: int = 7
         self.scale4_1x1conv = torch.nn.Sequential(
             torch.nn.Conv2d(
-                self.channels[i],
+                self.in_channels[i],
                 self.scale4_size * self.scale4_ch_dim_mid,
                 kernel_size=1,
             ),

@@ -136,7 +136,6 @@ class Depth3DEncoder(torch.nn.Module):
         # torch.Size([batch_size, 1024, 14, 14])
         # torch.Size([batch_size, 2048, 7, 7])
         self.resnet, _ = get_backbone(ModelBackbone.RESNET50)
-
         self.encoder = Features2DTo3DEncoder(in_channels=tuple(self.resnet.features_dims))
 
     def forward(self, x):
@@ -214,7 +213,7 @@ class P2MModelWithDepth3dCNN(nn.Module):
             case ModelName.P2M_WITH_DEPTH_RESNET_3D_CNN:
                 self.depth_nn_encoder = Depth3DEncoder()
                 self.features_dim: int = (
-                    self.coord_dim + self.nn_encoder.features_dim + self.depth_nn_encoder.channel_dim
+                    self.coord_dim + self.nn_encoder.features_dim + sum(self.depth_nn_encoder.encoder.out_channels)
                 )
             case ModelName.P2M_WITH_DEPTH_3D_CNN_CONCAT:
                 self.depth_nn_encoder = DepthPix2VoxEncoder()
