@@ -49,6 +49,21 @@ class Renderer:
         # Create input render layer node
         self.render_layers = self.nodes.new("CompositorNodeRLayers")
 
+        self.max_depth_distance = 1.2
+        self.render_depth: bool = False
+        if self.render_depth:
+            self.setup_depth_map()
+
+        # Delete default cube
+        self.context.active_object.select_set(True)
+        bpy.ops.object.delete()
+
+        self.init_lighting()
+
+        # set camera
+        self.init_camera()
+
+    def setup_depth_map(self) -> None:
         # depth
         # Create depth output nodes
         self.depth_file_output = self.nodes.new(type="CompositorNodeOutputFile")
@@ -68,20 +83,10 @@ class Renderer:
         depth_map.min = [0]
         depth_map.use_max = True
         depth_map.max = [255]
-        self.max_depth_distance = 1.2
 
         links = bpy.context.scene.node_tree.links
         links.new(self.render_layers.outputs["Depth"], depth_map.inputs[0])
         links.new(depth_map.outputs[0], self.depth_file_output.inputs[0])
-
-        # Delete default cube
-        self.context.active_object.select_set(True)
-        bpy.ops.object.delete()
-
-        self.init_lighting()
-
-        # set camera
-        self.init_camera()
 
     def init_lighting(self) -> None:
         #########
@@ -182,7 +187,8 @@ class Renderer:
         """
         self.scene.render.filepath = str(filepath)
 
-        self.depth_file_output.file_slots[0].path = f"{filepath}_depth"
+        if self.render_depth:
+            self.depth_file_output.file_slots[0].path = f"{filepath}_depth"
 
         bpy.ops.render.render(write_still=True)  # render still
 
@@ -227,10 +233,10 @@ def main(
 
     azimuth_list = [0.0, 60.0, 120.0, 180.0, 240.0, 300.0]
     elevation_list = [0.0, 30.0, 60.0, 90.0]
-    i = 3
-    j = 1
-    azimuth_list = azimuth_list[i:i+1]
-    elevation_list = elevation_list[j:j+1]
+    # i = 3
+    # j = 1
+    # azimuth_list = azimuth_list[i:i+1]
+    # elevation_list = elevation_list[j:j+1]
     render(renderer=renderer, azimuth_list=azimuth_list, elevation_list=elevation_list)
 
     # For debugging the workflow

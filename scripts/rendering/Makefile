@@ -30,3 +30,7 @@ run:
 			obj_filepath="sample.obj" \
 			output_dirpath="out" \
 			output_name="out"
+
+.PHONY: clean
+clean:
+	rm -rf "${CMD_DIR}"

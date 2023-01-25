@@ -1,9 +1,6 @@
-
 # Standard Library
 import argparse
 import concurrent.futures
-import os
-import re
 import subprocess
 import typing as t
 from dataclasses import dataclass
@@ -19,6 +16,7 @@ def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("--data_dir", required=True, type=lambda x: Path(x).expanduser().absolute())
     parser.add_argument("--out_dir", required=True, type=lambda x: Path(x).expanduser().absolute())
+    parser.add_argument("--num_workers", default=2, type=int)
     args = parser.parse_args()
     return args
 
@@ -27,14 +25,15 @@ def search_file_iter(dir: Path) -> t.Iterator[Path]:
     for p in dir.glob("**/*_2.obj"):
         yield p
 
+
 @dataclass
 class Cmd:
     cmd: t.List[str]
     category_id: str
     object_id: str
     env: t.Optional[t.Dict[str, str]] = None
-    stdout: t.Optional[t.TextIO] = None
-    stderr: t.Optional[t.TextIO] = None
+    stdout: t.Optional[t.Union[t.TextIO, int]] = None
+    stderr: t.Optional[t.Union[t.TextIO, int]] = None
 
 
 def run_cmd(cmd: Cmd) -> None:
@@ -53,7 +52,7 @@ def main() -> None:
     output_base_dir: Path = args.out_dir
     output_base_dir.mkdir(parents=True, exist_ok=True)
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=args.num_workers) as executor:
         future_to_fpath: t.Dict[concurrent.futures.Future[None], Cmd] = {}
         cmd: Cmd
         for i, filepath in enumerate(search_file_iter(args.data_dir)):
@@ -64,9 +63,7 @@ def main() -> None:
                 logger.error(f"{filepath} is not exists")
                 continue
 
-            output_file_parent: Path = (
-                output_base_dir / filepath.parent.relative_to(args.data_dir)
-            )
+            output_file_parent: Path = output_base_dir / filepath.parent.relative_to(args.data_dir)
             output_file_parent.mkdir(parents=True, exist_ok=True)
             cmd = Cmd(
                 cmd=[
@@ -79,10 +76,10 @@ def main() -> None:
                     f"output_dirpath='{output_file_parent}'",
                     f"output_name='rendering_{filepath.stem}'",
                 ],
-                category_id=filepath.parents[3].name,
-                object_id=filepath.parents[2].name,
-                stdout=None,
-                stderr=None,
+                category_id=filepath.parents[2].name,
+                object_id=filepath.parents[1].name,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             )
             future_to_fpath[executor.submit(run_cmd, cmd)] = cmd
 
