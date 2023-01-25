@@ -243,9 +243,16 @@ class P2MModelModule(pl.LightningModule):
 
         preds = self.custom_step(batch=batch, batch_idx=batch_idx, phase_name=phase_name)
 
-        if batch_idx > 3:
-            return
+        # if batch_idx > 3:
+        #     return
 
+        self.test_step_debug(batch=batch, batch_idx=batch_idx, preds=preds)
+
+    def test_epoch_end(self, test_step_outputs, *, phase_name: str = "test"):
+        self.validation_epoch_end(validation_step_outputs=test_step_outputs, phase_name=phase_name)
+        return
+
+    def test_step_debug(self, batch: P2MBatchData, batch_idx: int, preds: P2MModelForwardReturn):
         # save predicted data
         output_dir_path = Path(self.options.log_root_path) / "output"
         output_dir_path.mkdir(parents=True, exist_ok=True)
@@ -259,50 +266,47 @@ class P2MModelModule(pl.LightningModule):
 
             name: str
 
-            name = "images_orig"
-            torchvision.utils.save_image(batch[name][i_elem], d / f"{name}.png")
+            # name = "images_orig"
+            # torchvision.utils.save_image(batch[name][i_elem], d / f"{name}.png")
 
-            # point cloud
-            for name in ["points_orig"]:
-                PIL.Image.fromarray(
-                    plot_point_cloud(vertices=batch[name][i_elem : i_elem + 1], num_cols=1),
-                ).save(d / f"point_cloud_{name}.png")
-            for scale_i in range(len(preds["pred_coord"])):
-                name = "pred_coord"
-                PIL.Image.fromarray(
-                    plot_point_cloud(vertices=preds[name][scale_i][i_elem : i_elem + 1], num_cols=1),
-                ).save(d / f"point_cloud_{name}_{scale_i}.png")
+            # # point cloud
+            # for name in ["points_orig"]:
+            #     PIL.Image.fromarray(
+            #         plot_point_cloud(vertices=batch[name][i_elem : i_elem + 1], num_cols=1),
+            #     ).save(d / f"point_cloud_{name}.png")
+            # for scale_i in range(len(preds["pred_coord"])):
+            #     name = "pred_coord"
+            #     PIL.Image.fromarray(
+            #         plot_point_cloud(vertices=preds[name][scale_i][i_elem : i_elem + 1], num_cols=1),
+            #     ).save(d / f"point_cloud_{name}_{scale_i}.png")
 
-            # mesh
-            for scale_i in range(len(preds["pred_coord"])):
-                name = "pred_coord"
-                torchvision.utils.save_image(
-                    plot_pred_meshes(
-                        coords=preds[name][scale_i][i_elem],
-                        faces=self.ellipsoid.faces[scale_i] + 1,  # 0-origin to 1-origin
-                        mtl_filepath=Path(self.options.mtl_filepath),
-                        usemtl_name=self.options.usemtl_name,
-                    )
-                    .squeeze(0)[..., :3]
-                    .permute(2, 0, 1),
-                    d / f"mesh_{name}_{scale_i}.png",
-                )
+            # # mesh
+            # for scale_i in range(len(preds["pred_coord"])):
+            #     name = "pred_coord"
+            #     torchvision.utils.save_image(
+            #         plot_pred_meshes(
+            #             coords=preds[name][scale_i][i_elem],
+            #             faces=self.ellipsoid.faces[scale_i] + 1,  # 0-origin to 1-origin
+            #             mtl_filepath=Path(self.options.mtl_filepath),
+            #             usemtl_name=self.options.usemtl_name,
+            #         )
+            #         .squeeze(0)[..., :3]
+            #         .permute(2, 0, 1),
+            #         d / f"mesh_{name}_{scale_i}.png",
+            #     )
 
             # save as obj file
-            for scale_i in range(len(preds["pred_coord"])):
-                name = "pred_coord"
-                with open(d / f"mesh_{name}_{scale_i}.obj", "wt") as f:
-                    write_obj_info(
-                        f=f,
-                        coords=preds[name][scale_i][i_elem],
-                        faces=self.ellipsoid.faces[scale_i] + 1,  # 0-origin to 1-origin
-                        mtl_filename=Path(self.options.mtl_filepath).name,
-                        usemtl_name=self.options.usemtl_name,
-                    )
-
-    def test_epoch_end(self, test_step_outputs, *, phase_name: str = "test"):
-        self.validation_epoch_end(validation_step_outputs=test_step_outputs, phase_name=phase_name)
-        return
+            # for scale_i in range(len(preds["pred_coord"])):
+            scale_i = 2
+            name = "pred_coord"
+            with open(d / f"mesh_{name}_{scale_i}.obj", "wt") as f:
+                write_obj_info(
+                    f=f,
+                    coords=preds[name][scale_i][i_elem],
+                    faces=self.ellipsoid.faces[scale_i] + 1,  # 0-origin to 1-origin
+                    mtl_filename=Path(self.options.mtl_filepath).name,
+                    usemtl_name=self.options.usemtl_name,
+                )
 
     def configure_optimizers(self):
 

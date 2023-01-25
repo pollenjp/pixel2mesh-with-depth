@@ -321,11 +321,25 @@ class P2mWithDepth3dCNNEncoder(torch.nn.Module):
 
         self.features_dim: int = sum(self.features_2d_to_3d_encoder.out_channels)
 
-    def forward(self, a_features: torch.Tensor, b_features: list[torch.Tensor]) -> torch.Tensor:
+    def forward(self, a_features: list[torch.Tensor], b_features: list[torch.Tensor]) -> torch.Tensor:
         a = self.nn_encoder(a_features)
         b = self.depth_nn_encoder(b_features)
         encoded_features = self.features_merger(a, b)
         return self.features_2d_to_3d_encoder(encoded_features)
+
+
+class DepthOnly3dCNNEncoder(torch.nn.Module):
+    def __init__(self, backbone: ModelBackbone, coord_dim: int) -> None:
+        super().__init__()
+        self.depth_nn_encoder, _ = get_backbone(backbone)
+        block_dims = self.depth_nn_encoder.features_dims
+        self.features_2d_to_3d_encoder = Features2DTo3DEncoder(in_channels=tuple(block_dims))
+
+        self.features_dim: int = sum(self.features_2d_to_3d_encoder.out_channels)
+
+    def forward(self, x: list[torch.Tensor]) -> torch.Tensor:
+        x = self.depth_nn_encoder(x)
+        return self.features_2d_to_3d_encoder(x)
 
 
 class P2MModelWithDepth(nn.Module):
@@ -378,6 +392,11 @@ class P2MModelWithDepth(nn.Module):
                 self.projection = GProjection(mesh_pos, camera_f, camera_c, bound=options.z_threshold)
                 self.depth_nn_encoder, _ = get_backbone(options.backbone)
                 self.features_dim = self.coord_dim + self.depth_nn_encoder.features_dim
+
+            case ModelName.P2M_WITH_DEPTH_ONLY_3D_CNN:
+                self.depth_nn_encoder = DepthOnly3dCNNEncoder(backbone=options.backbone, coord_dim=self.coord_dim)
+                self.features_dim = self.coord_dim + self.depth_nn_encoder.features_dim
+                self.projection = GProjection3D()
 
             case ModelName.P2M_WITH_DEPTH_3D_CNN:
                 self.encoder = P2mWithDepth3dCNNEncoder(backbone=options.backbone, coord_dim=self.coord_dim)
@@ -444,6 +463,9 @@ class P2MModelWithDepth(nn.Module):
                 img_shape = self.projection.image_feature_shape(img)
                 depth_img_feats = self.depth_nn_encoder(batch["depth_images"].repeat(1, 3, 1, 1))
                 encoded_features = depth_img_feats
+            case ModelName.P2M_WITH_DEPTH_ONLY_3D_CNN:
+                depth_img_feats = self.depth_nn_encoder(batch["depth_images"].repeat(1, 3, 1, 1))
+                encoded_features = depth_img_feats
             case ModelName.P2M_WITH_DEPTH_3D_CNN:
                 encoded_features = self.encoder(img, batch["depth_images"].repeat(1, 3, 1, 1))
             case _:
@@ -452,6 +474,9 @@ class P2MModelWithDepth(nn.Module):
         match self.options.name:
             case ModelName.P2M_WITH_DEPTH | ModelName.P2M_WITH_DEPTH_ONLY:
                 x = self.projection(img_shape, encoded_features, init_pts)
+            case ModelName.P2M_WITH_DEPTH_ONLY_3D_CNN:
+                x = self.projection(encoded_features, init_pts)
+                x = torch.cat([init_pts, x], dim=2)
             case ModelName.P2M_WITH_DEPTH_RESNET:
                 x_img = self.projection(img_shape, img_features, init_pts)
                 x_depth = self.projection(img_shape, depth_img_feats, init_pts)
@@ -468,6 +493,9 @@ class P2MModelWithDepth(nn.Module):
         match self.options.name:
             case ModelName.P2M_WITH_DEPTH | ModelName.P2M_WITH_DEPTH_ONLY:
                 x = self.projection(img_shape, encoded_features, x1)
+            case ModelName.P2M_WITH_DEPTH_ONLY_3D_CNN:
+                x = self.projection(encoded_features, x1)
+                x = torch.cat([x1, x], dim=2)
             case ModelName.P2M_WITH_DEPTH_RESNET:
                 x_img = self.projection(img_shape, img_features, x1)
                 x_depth = self.projection(img_shape, depth_img_feats, x1)
@@ -486,6 +514,9 @@ class P2MModelWithDepth(nn.Module):
         match self.options.name:
             case ModelName.P2M_WITH_DEPTH | ModelName.P2M_WITH_DEPTH_ONLY:
                 x = self.projection(img_shape, encoded_features, x2)
+            case ModelName.P2M_WITH_DEPTH_ONLY_3D_CNN:
+                x = self.projection(encoded_features, x2)
+                x = torch.cat([x2, x], dim=2)
             case ModelName.P2M_WITH_DEPTH_RESNET:
                 x_img = self.projection(img_shape, img_features, x2)
                 x_depth = self.projection(img_shape, depth_img_feats, x2)

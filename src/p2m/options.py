@@ -44,6 +44,7 @@ class ModelName(Enum):
     P2M_WITH_DEPTH = "p2m_with_depth"
     P2M_WITH_DEPTH_RESNET = "p2m_with_depth_resnet"
     P2M_WITH_DEPTH_ONLY = "p2m_with_depth_only"
+    P2M_WITH_DEPTH_ONLY_3D_CNN = "p2m_with_depth_only_3d_cnn"
     P2M_WITH_DEPTH_3D_CNN = "p2m_with_depth_3d_cnn"
     P2M_WITH_DEPTH_PIX2VOX = "p2m_with_depth_pix2vox"
     P2M_WITH_DEPTH_3D_CNN_CONCAT = "p2m_with_depth_3d_cnn_concat"
