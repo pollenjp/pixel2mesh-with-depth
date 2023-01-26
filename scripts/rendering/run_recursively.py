@@ -29,11 +29,10 @@ def search_file_iter(dir: Path) -> t.Iterator[Path]:
 @dataclass
 class Cmd:
     cmd: t.List[str]
-    category_id: str
-    object_id: str
     env: t.Optional[t.Dict[str, str]] = None
     stdout: t.Optional[t.Union[t.TextIO, int]] = None
     stderr: t.Optional[t.Union[t.TextIO, int]] = None
+    debug_msg: t.Optional[str] = None
 
 
 def run_cmd(cmd: Cmd) -> None:
@@ -76,10 +75,9 @@ def main() -> None:
                     f"output_dirpath='{output_file_parent}'",
                     f"output_name='rendering_{filepath.stem}'",
                 ],
-                category_id=filepath.parents[2].name,
-                object_id=filepath.parents[1].name,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                debug_msg=f"{filepath}",
             )
             future_to_fpath[executor.submit(run_cmd, cmd)] = cmd
 
@@ -91,7 +89,7 @@ def main() -> None:
             except Exception as exc:
                 raise exc
             else:
-                logger.info(f"Completed: {cmd.category_id}/{cmd.object_id}")
+                logger.info(f"Completed: {cmd.debug_msg}")
 
 
 if __name__ == "__main__":
