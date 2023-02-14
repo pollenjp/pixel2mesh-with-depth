@@ -192,8 +192,8 @@ def main_debug() -> None:
     i: int = 0
     i_label = f"{i:0>2}"
     pkl_fpath: Path = Path(
-        f"/home/hiroakisugisaki/workdir/data_local/dataset/2022-11-10/shapenet_p2m_custom/{category_id}/{object_id}/rendering/{i_label}.dat"
-    )
+        f"~/workdir/data_local/dataset/2022-11-10/shapenet_p2m_custom/{category_id}/{object_id}/rendering/{i_label}.dat"
+    ).expanduser()
     obj_fpath: Path = Path(f"tested/2023-01-25T035025/output/{category_id}/{object_id}/{i_label}/mesh_pred_coord_2.obj")
 
     cd, f1_tau, f1_2tau = calc_cd_and_f1_from_file(obj_fpath, pkl_fpath, tau=1e-4)
