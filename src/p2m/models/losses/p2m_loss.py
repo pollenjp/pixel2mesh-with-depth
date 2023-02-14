@@ -11,10 +11,11 @@ from pytorch3d.loss.chamfer import knn_points
 # First Party Library
 from p2m.models.p2m_with_template import P2MModelWithTemplateForwardReturn
 from p2m.options import OptionsLoss
+from p2m.utils.mesh import Ellipsoid
 
 
 class P2MLoss(nn.Module):
-    def __init__(self, options: OptionsLoss, ellipsoid):
+    def __init__(self, options: OptionsLoss, ellipsoid: Ellipsoid):
         super().__init__()
         self.options = options
         self.l2_loss = nn.MSELoss(reduction="mean")
