@@ -21,9 +21,31 @@ def get_args() -> argparse.Namespace:
     return args
 
 
+name2index = {
+    # "category_id/object_id/num": (1, 2),
+    #
+    # "02691156/d3b9114df1d8a3388e415c6cf89025f0/00": (1, 0),
+    # "02691156/d3b9114df1d8a3388e415c6cf89025f0/02": (3, 1),
+    # "02691156/d4dac019726e980e203936772104a82d/02": (3, 3),
+    # "02691156/d54ca25127a15d2b937ae00fead8910d/00": (1, 0),
+    # "02691156/d59d75f52ac9b241ae0d772a1c85134a/02": (5, 2),
+    # "02691156/d63daa9d1fd2ff5d575bf8a4b14be4f4/03": (2, 1),
+    # "02691156/d605a53c0917acada80799ffaf21ea7d/00": (3, 2),
+    #
+    "02691156/d3dcf83f03c7ad2bbc0909d98a1ff2b4/00": (3, 2),
+    "02691156/d4aec2680be68c813a116bc3efac4e3b/02": (2, 2),
+    "02691156/d6bf9fb6149faabe36f3a2343a8221f2/04": (2, 3),
+}
+
+
 def search_file_iter(dir: Path) -> t.Iterator[Path]:
     for p in dir.glob("**/*_2.obj"):
         yield p
+        # category_id: str = p.parents[2].name
+        # object_id: str = p.parents[1].name
+        # i_label: str = p.parents[0].name
+        # if f"{category_id}/{object_id}/{i_label}" in name2index:
+        #     yield p
 
 
 @dataclass
@@ -55,8 +77,6 @@ def main() -> None:
         future_to_fpath: t.Dict[concurrent.futures.Future[None], Cmd] = {}
         cmd: Cmd
         for i, filepath in enumerate(search_file_iter(args.data_dir)):
-            # if i > 2:
-            #     break
             logger.info(f"{i:>5}: {filepath}")
             if not filepath.exists():
                 logger.error(f"{filepath} is not exists")

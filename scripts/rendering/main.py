@@ -202,6 +202,23 @@ class Renderer:
         return obj
 
 
+name2index = {
+    # "category_id/object_id/num": (1, 2),
+    #
+    # "02691156/d3b9114df1d8a3388e415c6cf89025f0/00": (1, 0),
+    # "02691156/d3b9114df1d8a3388e415c6cf89025f0/02": (3, 1),
+    # "02691156/d4dac019726e980e203936772104a82d/02": (3, 3),
+    # "02691156/d54ca25127a15d2b937ae00fead8910d/00": (1, 0),
+    # "02691156/d59d75f52ac9b241ae0d772a1c85134a/02": (5, 2),
+    # "02691156/d63daa9d1fd2ff5d575bf8a4b14be4f4/03": (2, 1),
+    # "02691156/d605a53c0917acada80799ffaf21ea7d/00": (3, 2),
+    #
+    "02691156/d3dcf83f03c7ad2bbc0909d98a1ff2b4/00": (3, 2),
+    "02691156/d4aec2680be68c813a116bc3efac4e3b/02": (2, 2),
+    "02691156/d6bf9fb6149faabe36f3a2343a8221f2/04": (2, 3),
+}
+
+
 def main(
     obj_filepath: Path,
     output_dirpath: Path,
@@ -233,10 +250,21 @@ def main(
 
     azimuth_list = [0.0, 60.0, 120.0, 180.0, 240.0, 300.0]
     elevation_list = [0.0, 30.0, 60.0, 90.0]
+
+    #
+    # category_id: str = obj_filepath.parents[2].name
+    # object_id: str = obj_filepath.parents[1].name
+    # i_label: str = obj_filepath.parents[0].name
+    # i, j = name2index[f"{category_id}/{object_id}/{i_label}"]
+
+    # debug
     # i = 3
     # j = 1
-    # azimuth_list = azimuth_list[i:i+1]
-    # elevation_list = elevation_list[j:j+1]
+
+    # select
+    # azimuth_list = azimuth_list[i : i + 1]
+    # elevation_list = elevation_list[j : j + 1]
+
     render(renderer=renderer, azimuth_list=azimuth_list, elevation_list=elevation_list)
 
     # For debugging the workflow
